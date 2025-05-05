@@ -126,7 +126,11 @@ async def handle_private_message(update: Update) -> Optional[str]:
     key, url, model_name = llm.get_api_config(config['api'])
     client, model = llm.build_client(key, url, model_name)
     prompts = prompt.build_prompts(config['char'], input_text, config['preset'])
-
+    print(f"聊天id{config['conv_id']}")
+    if not config['conv_id']:
+        conv.private_new(user_info['user_id'], config)
+        config = user.config_get(user_info['user_id'])
+        print(f"生成聊天id{config['conv_id']}")
     if use_stream:
         # 使用 asyncio.create_task 将流式处理放到后台执行
         asyncio.create_task(handle_streaming(update))
