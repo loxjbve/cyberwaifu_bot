@@ -6,8 +6,8 @@ import logging
 from asyncio import Semaphore
 from bot_core import tg, user, msg, public, group, callback, keyword as kw
 from bot_core import conversation as conv
-from bot_core.decorators import handle_command_errors, check_message_and_user # Import decorators
-from bot_core.exceptions import BotRunError # Import from new exceptions file
+from bot_core.decorators import handle_command_errors, check_message_and_user  # Import decorators
+from bot_core.exceptions import BotRunError  # Import from new exceptions file
 
 # 设置日志配置
 logging.basicConfig(
@@ -24,8 +24,6 @@ semaphore = Semaphore(5)
 BOT_TOKEN, _ = file_utils.load_config()
 
 
-
-
 @handle_command_errors
 @check_message_and_user
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -37,7 +35,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         context (ContextTypes.DEFAULT_TYPE): 上下文对象。
     """
     # Decorator handles checks and basic logging
-    await update.message.reply_text("你好！我是由 @Xi_cuicui 开发的CyberWaifu项目。")
+    user_info = tg.user_info_get(update)  # Still need user_id
+    info = user.info_get(user_info['user_id'])
+    await update.message.reply_text(
+        f"你好，{info['first_name']} {info['last_name']}！我是由 @Xi_cuicui 开发的CyberWaifu项目。\r\n已为您创建用户档案。\r\n使用' /char '可以切换角色\r\n"
+        f"使用' /preset '可切换聊天预设\r\n 使用' /new '可展开新对话\r\n 使用' /save '可以保存当前会话，并通过' /load ' ' /delete '读取或删除"
+        f"使用' /stream '可切换流式传输模式")
 
 
 @handle_command_errors
@@ -50,7 +53,7 @@ async def stream(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         context (ContextTypes.DEFAULT_TYPE): 上下文对象。
     """
     # Decorator handles checks and basic logging
-    user_info = tg.user_info_get(update) # Still need user_id
+    user_info = tg.user_info_get(update)  # Still need user_id
     if user.stream_switch(user_info['user_id']):
         await update.message.reply_text("切换成功！")
 
@@ -66,14 +69,14 @@ async def me(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         context (ContextTypes.DEFAULT_TYPE): 上下文对象。
     """
     # Decorator handles checks and basic logging
-    user_info = tg.user_info_get(update) # Still need user_id
+    user_info = tg.user_info_get(update)  # Still need user_id
     info = user.info_get(user_info['user_id'])
     result = (
-    f"您好，{info['first_name']} {info['last_name']}！\r\n"
-    f"您的帐户等级是：`{info['tier']}`；\r\n"
-    f"您今日的剩余额度还有`{info['remain']}`条；\r\n"
-    f"您的余额是`{info['balance']}`。"
-)
+        f"您好，{info['first_name']} {info['last_name']}！\r\n"
+        f"您的帐户等级是：`{info['tier']}`；\r\n"
+        f"您今日的剩余额度还有`{info['remain']}`条；\r\n"
+        f"您的余额是`{info['balance']}`。"
+    )
     await update.message.reply_text(f"{result}", parse_mode='MarkDown')
 
 
@@ -88,7 +91,7 @@ async def new(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         context (ContextTypes.DEFAULT_TYPE): 上下文对象。
     """
     # Decorator handles checks and basic logging
-    user_info = tg.user_info_get(update) # Still need user_id
+    user_info = tg.user_info_get(update)  # Still need user_id
     config = user.config_get(user_info['user_id'])
     result = conv.private_new(user_info['user_id'], config)
     await update.message.reply_text(f"{result}", parse_mode='MarkDown')
@@ -104,7 +107,7 @@ async def save(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         update (Update): Telegram 更新对象。
     """
     # Decorator handles checks and basic logging
-    user_info = tg.user_info_get(update) # Still need user_id
+    user_info = tg.user_info_get(update)  # Still need user_id
     config = user.config_get(user_info['user_id'])
     result = await conv.private_save(config['conv_id'])
     await update.message.reply_text(f"{result}")
@@ -120,7 +123,7 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         update (Update): Telegram 更新对象。
     """
     # Decorator handles checks and basic logging
-    user_info = tg.user_info_get(update) # Still need user_id
+    user_info = tg.user_info_get(update)  # Still need user_id
     config = user.config_get(user_info['user_id'])
     result = f"当前角色：`{config['char']}`\r\n当前接口：`{config['api']}`\r\n当前预设：`{config['preset']}`\r\n流式传输：`{config['stream']}`\r\n"
     await update.message.reply_text(result, parse_mode='MarkDown')
@@ -155,7 +158,7 @@ async def api(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         context (ContextTypes.DEFAULT_TYPE): 上下文对象。
     """
     # Decorator handles checks and basic logging
-    user_info = tg.user_info_get(update) # Still need user_id
+    user_info = tg.user_info_get(update)  # Still need user_id
     bot_user_info = user.info_get(user_info['user_id'])
     markup = public.print_api_list(bot_user_info['tier'])
     if markup == "没有可用的api。" or markup == "没有符合您账户等级的可用api。":
@@ -193,7 +196,7 @@ async def load(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         context (ContextTypes.DEFAULT_TYPE): 上下文对象。
     """
     # Decorator handles checks and basic logging
-    user_info = tg.user_info_get(update) # Still need user_id
+    user_info = tg.user_info_get(update)  # Still need user_id
     markup = public.print_conversations(user_info['user_id'])
     if markup == "没有可用的对话。":
         await update.message.reply_text(markup)
@@ -212,7 +215,7 @@ async def delete(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         context (ContextTypes.DEFAULT_TYPE): 上下文对象。
     """
     # Decorator handles checks and basic logging
-    user_info = tg.user_info_get(update) # Still need user_id
+    user_info = tg.user_info_get(update)  # Still need user_id
     markup = public.print_conversations(user_info['user_id'], 'delete')
     if markup == "没有可用的对话。":
         await update.message.reply_text(markup)
@@ -220,7 +223,7 @@ async def delete(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("请选择一个对话：", reply_markup=markup)
 
 
-@handle_command_errors # Only apply error handling for now
+@handle_command_errors  # Only apply error handling for now
 async def remake(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     处理 /remake 命令，重开对话。
@@ -241,7 +244,7 @@ async def remake(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 @handle_command_errors
-@check_message_and_user # Apply user check, admin check remains inside
+@check_message_and_user  # Apply user check, admin check remains inside
 async def switch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     处理 /switch 命令，切换群组内角色。
@@ -345,7 +348,7 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         logger.error(f"BadRequest 错误: {str(e)}", exc_info=True)
         if update and update.message:
             await update.message.reply_text("发送消息时发生错误，请稍后重试。", parse_mode=None)
-    except BotRunError as e: # This should now correctly catch the imported BotRunError
+    except BotRunError as e:  # This should now correctly catch the imported BotRunError
         logger.error(f"BotRunError 错误: {str(e)}", exc_info=True)
         if update and update.message:
             # Avoid sending duplicate error messages if the decorator already sent one
