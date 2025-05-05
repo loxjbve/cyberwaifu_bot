@@ -1,0 +1,28 @@
+{
+    "api_list": [
+    {
+      "name": "gemini-2",
+      "key": "",
+      "url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+      "model": "gemini-2.0-flash",
+      "group":0
+    },
+
+    {
+      "name": "grok-3",
+      "key": "",
+      "url": "https://api.x.ai/v1/",
+      "model": "grok-3-latest",
+      "group":1
+    },
+
+    {
+      "name": "deepseek-v3",
+      "key": "",
+      "url": "https://api.deepseek.com/v1/",
+      "model": "deepseek-chat",
+      "group":2
+    }
+  ],
+  "TG_TOKEN" : ""
+}
