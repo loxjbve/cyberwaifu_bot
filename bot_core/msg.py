@@ -126,11 +126,11 @@ async def handle_private_message(update: Update) -> Optional[str]:
     key, url, model_name = llm.get_api_config(config['api'])
     client, model = llm.build_client(key, url, model_name)
     prompts = prompt.build_prompts(config['char'], input_text, config['preset'])
-    print(f"聊天id{config['conv_id']}")
+    print(f"聊天id{config['conv_id']}，模型{model}")
     if not config['conv_id']:
         conv.private_new(user_info['user_id'], config)
         config = user.config_get(user_info['user_id'])
-        print(f"生成聊天id{config['conv_id']}")
+        #print(f"生成聊天id{config['conv_id']}")
     if use_stream:
         # 使用 asyncio.create_task 将流式处理放到后台执行
         asyncio.create_task(handle_streaming(update))
@@ -139,7 +139,7 @@ async def handle_private_message(update: Update) -> Optional[str]:
         # 非流式也使用后台任务处理
         placeholder_message = await update.message.reply_text("思考中...")  # 发送占位符
         asyncio.create_task(
-            _handle_non_streaming_response_background(user_info, client, prompts, model, placeholder_message))
+            _handle_non_streaming_response_background(user_info, client,model, prompts ,placeholder_message))
         return None  # 立即返回
 
 
@@ -260,7 +260,7 @@ async def _handle_non_streaming_response_background(info, client, model, prompts
     config = user.config_get(user_id)
 
     try:
-        logger.info(f"后台处理非流式私聊回复, user_id: {user_id}")
+        logger.info(f"后台处理非流式私聊回复, user_id: {user_id}，模型{model}")
         # 注意：llm.get_response_no_stream 是异步函数，必须直接 await，不能用 asyncio.to_thread
         full_response = await llm.get_response_no_stream(client, model, prompts, config['conv_id'], 'private')
         response_token = llm.calculate_token_count(full_response)
