@@ -126,7 +126,7 @@ async def handle_private_message(update: Update) -> Optional[str]:
     key, url, model_name = llm.get_api_config(config['api'])
     client, model = llm.build_client(key, url, model_name)
     prompts = prompt.build_prompts(config['char'], input_text, config['preset'])
-    print(f"聊天id{config['conv_id']}，模型{model}")
+    #print(f"聊天id{config['conv_id']}，模型{model}")
     if not config['conv_id']:
         conv.private_new(user_info['user_id'], config)
         config = user.config_get(user_info['user_id'])
