@@ -518,7 +518,7 @@ def main() -> None:
         app.add_handler(CommandHandler("delete", delete, filters=filters.ChatType.PRIVATE))
         app.add_handler(CommandHandler("stream", stream, filters=filters.ChatType.PRIVATE))
         app.add_handler(CommandHandler('done', done, filters=filters.ChatType.PRIVATE))
-        app.add_handler(MessageHandler(filters.TEXT | filters.Document.ALL, handle_newchar_input), group=0)
+        app.add_handler(MessageHandler(filters.TEXT | filters.Document.ALL & ~filters.COMMAND & filters.ChatType.PRIVATE, handle_newchar_input), group=0)
         app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE, msg_private_handle))
 
         app.add_handler(CommandHandler("cremake", remake, filters=filters.ChatType.GROUP | filters.ChatType.SUPERGROUP))
