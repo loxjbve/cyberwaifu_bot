@@ -53,6 +53,8 @@ class CallbackHandler:
         try:
             if data.startswith("set_char_"):
                 await _handle_set_character(update, data[9:], user_id)
+            elif data.startswith("del_char"):
+                await _handle_del_character(update,data[9:],user_id)
             elif data.startswith("set_api_"):
                 await _handle_set_api(update, data[8:], user_id)
             elif data.startswith("set_preset_"):
@@ -86,6 +88,30 @@ async def _handle_set_character(update: Update, character: str, user_id: int) ->
     db.conversation_private_update(conv_id, character, preset)
     await update.callback_query.message.edit_text(f"角色切换成功！当前角色: {character.split('_')[0]}。")
 
+async def _handle_del_character(update: Update, character: str, user_id: int) -> None:
+    """
+    处理角色设置回调。
+
+    Args:
+        update (Update): Telegram更新对象。
+        character (str): 角色名。
+        user_id (int): 用户ID。
+    """
+    import os
+    _, api, preset, conv_id,_ = db.user_config_get(user_id)
+    db.user_config_update(user_id, 'cuicuishark_public', api, preset, conv_id)
+    db.conversation_private_update(conv_id, character, preset)
+    # 处理角色文件重命名逻辑
+    char_dir = './characters/'
+    json_path = os.path.join(char_dir, f'{character}.json')
+    txt_path = os.path.join(char_dir, f'{character}.txt')
+    if os.path.exists(json_path):
+        del_path = os.path.join(char_dir, f'{character}_del.json')
+        os.rename(json_path, del_path)
+    elif os.path.exists(txt_path):
+        del_path = os.path.join(char_dir, f'{character}_del.txt')
+        os.rename(txt_path, del_path)
+    await update.callback_query.message.edit_text(f"角色`{character.split('_')[0]}`删除成功！已为您切换默认角色`cuicuishark` 。")
 
 async def _handle_set_api(update: Update, api: str, user_id: int) -> None:
     """

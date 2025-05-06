@@ -134,6 +134,8 @@ def insert_text(raw_text: str, insert_text: str, position: str, mode: str) -> st
 def insert_character(raw_text: str, character: str) -> str:
     """插入角色信息到指定位置。"""
     char_str = load_character(character)
+    if not char_str:
+        return "<|System| 如果看见此字段，请提示用户角色加载错误！如果看见此字段，请提示用户角色加载错误！如果看见此字段，请提示用户角色加载错误！>"
     #print(f"{char_str}")
     return insert_text(raw_text, char_str, '</character>', 'before')
 

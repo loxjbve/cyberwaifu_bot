@@ -36,18 +36,27 @@ def load_config(config_file="./config/config.json"):
 
 
 
-def list_characters(user_id, char_dir="./characters/"):
+import os
+
+def list_characters(user_id: int, type: str = 'load', char_dir: str = "./characters/") -> list[str]:
     """
     列出所有可用角色
-    返回：角色名称列表
+    :param user_id: 用户ID，用于过滤角色
+    :param type: 操作类型，'load'为加载，'del'为删除
+    :param char_dir: 角色文件目录
+    :return: 角色名称列表
     """
     result = []
     for f in os.listdir(char_dir):
         name, ext = os.path.splitext(f)
-        if ext in (".txt", ".json"):
-            if name.endswith("_public") or name.endswith(f"_{user_id}"):
-                result.append(name)
+        if ext not in (".txt", ".json"):
+            continue
+        if type == 'load' and (name.endswith("_public") or name.endswith(f"_{user_id}")):
+            result.append(name)
+        elif type == 'del' and name.endswith(f"_{user_id}"):
+            result.append(name)
     return result
+
 
 
 def load_prompts(prompt_file="./prompts/prompts.json"):

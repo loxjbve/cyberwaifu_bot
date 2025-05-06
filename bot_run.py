@@ -146,6 +146,72 @@ async def char(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     else:
         await update.message.reply_text("请选择一个角色：", reply_markup=markup)
 
+@handle_command_errors
+@check_message_and_user
+async def delchar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    处理 /delchar 命令，删除角色。
+
+    Args:
+        update (Update): Telegram 更新对象。
+        context (ContextTypes.DEFAULT_TYPE): 上下文对象。
+    """
+    # Decorator handles checks and basic logging
+    markup = public.print_char_list(update,'del_private')
+    if markup == "没有可删除的角色。":
+        await update.message.reply_text(markup)
+    else:
+        await update.message.reply_text("请选择一个角色：", reply_markup=markup)
+@handle_command_errors
+@check_message_and_user
+async def newchar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    处理 /newchar 命令，创建私人角色
+
+    Args:
+        update (Update): Telegram 更新对象。
+        context (ContextTypes.DEFAULT_TYPE): 上下文对象。
+    """
+    user_info = tg.user_info_get(update)
+    user_id = user_info['user_id']
+    # 解析命令参数
+    args = context.args if hasattr(context, 'args') else []
+    if not args or len(args[0].strip()) == 0:
+        await update.message.reply_text("请使用 /newchar char_name 的格式指定角色名。")
+        return
+    char_name = args[0].strip()
+    # 标记用户进入角色描述输入状态
+    if not hasattr(context.bot_data, 'newchar_state'):
+        context.bot_data['newchar_state'] = {}
+    context.bot_data['newchar_state'][user_id] = {'char_name': char_name, 'desc_chunks': []}
+    await update.message.reply_text(f"请上传角色描述文件（json/txt）或直接发送文本描述，完成后发送 /done 结束输入。\n如描述较长可分多条消息发送。")
+
+
+# 新增/done命令，完成角色描述输入
+@handle_command_errors
+@check_message_and_user
+async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = tg.user_info_get(update)['user_id']
+    state = context.bot_data.get('newchar_state', {}).get(user_id)
+    if not state:
+        await update.message.reply_text("当前无待保存的角色描述。请先使用 /newchar char_name。"); return
+    char_name = state['char_name']
+    import os
+    save_dir = os.path.join(os.path.dirname(__file__), 'characters')
+    os.makedirs(save_dir, exist_ok=True)
+    # 优先保存文件，如果有文件则直接提示，否则保存文本为txt
+    if 'file_saved' in state:
+        save_path = state['file_saved']
+        del context.bot_data['newchar_state'][user_id]
+        await update.message.reply_text(f"角色 {char_name} 已保存到 {save_path}")
+        return
+    desc = '\n'.join(state['desc_chunks'])
+    save_path = os.path.join(save_dir, f"{char_name}_{user_id}.txt")
+    with open(save_path, 'w', encoding='utf-8') as f:
+        f.write(desc)
+    del context.bot_data['newchar_state'][user_id]
+    await update.message.reply_text(f"角色 {char_name} 已保存到 {save_path}")
+
 
 @handle_command_errors
 @check_message_and_user
@@ -299,7 +365,34 @@ async def msg_group_handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         logger.error(f"处理群聊消息时出错: {str(e)}", exc_info=True)
         # 不再向用户重复发送错误消息，避免多次回复
 
-
+# 新增处理文本和文件输入的handler
+async def handle_newchar_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = tg.user_info_get(update)['user_id']
+    state = context.bot_data.get('newchar_state', {}).get(user_id)
+    if not state:
+        return  # 非角色描述输入状态，交由其他handler处理
+    # 文件输入
+    if update.message.document:
+        file = update.message.document
+        if file.mime_type in ['application/json', 'text/plain'] or file.file_name.endswith(('.json', '.txt')):
+            file_obj = await file.get_file()
+            import os
+            save_dir = os.path.join(os.path.dirname(__file__), 'characters')
+            os.makedirs(save_dir, exist_ok=True)
+            char_name = state['char_name']
+            target_ext = os.path.splitext(file.file_name)[1] if os.path.splitext(file.file_name)[1] else '.txt'
+            save_path = os.path.join(save_dir, f"{char_name}_{user_id}{target_ext}")
+            await file_obj.download_to_drive(save_path)
+            state['file_saved'] = save_path
+            await update.message.reply_text(f"文件已保存为 {save_path}，如需补充文本可继续发送，发送 /done 完成。")
+        else:
+            await update.message.reply_text("仅支持json或txt文件。")
+        return
+    # 文本输入
+    if update.message.text:
+        state['desc_chunks'].append(update.message.text)
+        await update.message.reply_text("文本已接收，可继续发送文本或文件，发送 /done 完成。")
+        return
 async def msg_private_handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     处理私聊文本消息。
@@ -382,6 +475,8 @@ def main() -> None:
                     BotCommand("me", "查看个人信息"),
                     BotCommand("status", "查看当前配置状态"),
                     BotCommand("char", "选择角色"),
+                    BotCommand("newchar", "创建私人角色"),
+                    BotCommand("delchar", "删除私人角色"),
                     BotCommand("api", "选择API"),
                     BotCommand("load", "加载保存的对话"),
                     BotCommand("preset", "选择预设"),
@@ -412,6 +507,8 @@ def main() -> None:
         app.add_handler(CommandHandler("me", me, filters=filters.ChatType.PRIVATE))
         app.add_handler(CommandHandler("status", status, filters=filters.ChatType.PRIVATE))
         app.add_handler(CommandHandler("char", char, filters=filters.ChatType.PRIVATE))
+        app.add_handler(CommandHandler('newchar', newchar, filters=filters.ChatType.PRIVATE))
+        app.add_handler(CommandHandler('delchar', delchar, filters=filters.ChatType.PRIVATE))
         app.add_handler(CommandHandler("api", api, filters=filters.ChatType.PRIVATE))
         app.add_handler(CommandHandler("load", load, filters=filters.ChatType.PRIVATE))
         app.add_handler(CommandHandler("preset", preset, filters=filters.ChatType.PRIVATE))
@@ -419,9 +516,11 @@ def main() -> None:
         app.add_handler(CommandHandler("save", save, filters=filters.ChatType.PRIVATE))
         app.add_handler(CommandHandler("delete", delete, filters=filters.ChatType.PRIVATE))
         app.add_handler(CommandHandler("stream", stream, filters=filters.ChatType.PRIVATE))
+        app.add_handler(CommandHandler('done', done, filters=filters.ChatType.PRIVATE))
 
         # 添加消息处理器（只处理私聊消息）
         app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE, msg_private_handle))
+        app.add_handler(MessageHandler(filters.TEXT | filters.Document.ALL, handle_newchar_input), group=0)
 
         # 添加命令处理器（只处理群聊中的命令）
         app.add_handler(CommandHandler("cremake", remake, filters=filters.ChatType.GROUP | filters.ChatType.SUPERGROUP))

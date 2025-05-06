@@ -55,6 +55,15 @@ def print_char_list(update: Update, char_type: str = 'private') -> Union[str, In
             keyboard = [
                 [InlineKeyboardButton(char.split('_')[0], callback_data=f"set_char_{char}")] for char in characters
             ]
+        elif char_type == 'del_private':
+            user_info = tg.user_info_get(update)
+            user_id = user_info['user_id']
+            characters = file.list_characters(user_id,'del')
+            if not characters:
+                return "没有可删除的角色。"
+            keyboard = [
+                [InlineKeyboardButton(char.split('_')[0], callback_data=f"del_char_{char}")] for char in characters
+            ]
         else:
             group_id = update.message.chat.id
             characters = file.list_characters(group_id)
