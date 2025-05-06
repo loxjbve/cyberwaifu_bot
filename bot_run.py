@@ -519,8 +519,9 @@ def main() -> None:
         app.add_handler(CommandHandler('done', done, filters=filters.ChatType.PRIVATE))
 
         # 添加消息处理器（只处理私聊消息）
-        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE, msg_private_handle))
         app.add_handler(MessageHandler(filters.TEXT | filters.Document.ALL, handle_newchar_input), group=0)
+        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE, msg_private_handle))
+
 
         # 添加命令处理器（只处理群聊中的命令）
         app.add_handler(CommandHandler("cremake", remake, filters=filters.ChatType.GROUP | filters.ChatType.SUPERGROUP))
