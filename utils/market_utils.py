@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime
 
 
-def get_candlestick_data(coin, timeframe='15m', limit=40, exchange_id='binance'):
+def get_candlestick_data(coin, timeframe='1h', limit=40, exchange_id='binance'):
     """
     获取指定币种的K线数据，交易对默认为USDT，时间转换为UTC+8时区
     参数:

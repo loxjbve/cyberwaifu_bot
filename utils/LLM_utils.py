@@ -40,7 +40,7 @@ async def get_response_no_stream(client: openai.AsyncOpenAI, model, current_inpu
     #print(f"model:{model}\r\ninput:{current_input}\r\nconv_id:{conv_id}\r\ntype:{type}")
     try:
         messages = await get_full_msg(conv_id, type, current_input)
-        print(f"完整prompts:{str(messages)}")
+        #print(f"完整prompts:{str(messages)}")
         response = await client.chat.completions.create(
             model=model,
             messages=messages,
