@@ -134,3 +134,38 @@ async def dialog_add(group_info) -> bool:
     except Exception as e:
         logger.error(f"添加群聊对话记录失败, group_id: {group_id}, 错误: {str(e)}")
         raise DatabaseError(f"添加群聊对话记录失败: {str(e)}")
+
+async def info_update_or_create(update,context) -> bool:
+    """
+    更新或创建群组信息。
+
+    Args:
+        update (Update): Telegram更新对象。
+        context (ContextTypes.DEFAULT_TYPE): 上下文对象。
+
+    Returns:
+        bool: 操作是否成功。
+    """
+    group_id = update.message.chat.id
+    group_name = update.message.chat.title
+    current_time = str(datetime.datetime.now())
+    try:
+        if db.group_check_update(group_id):
+            logger.info(f"更新群组信息, group_name: {group_name}, time: {current_time}")
+            admins = await context.bot.get_chat_administrators(group_id)
+            admin_list = [admin.user.id for admin in admins]
+            config = db.group_config_get(group_id)
+            if config:
+                api, char, preset = config[0], config[1], config[2]
+            else:
+                db.group_info_create(group_id)
+                api, char, preset = 'gemini-2', 'cuicuishark_public', 'Default_meeting'
+            field_list = ['group_name', 'update_time', 'members_list', 'api', 'char', 'preset']
+            value_list = [group_name, current_time, str(admin_list), api, char, preset]
+            for field, value in zip(field_list, value_list):
+                db.group_info_update(group_id, field, value)
+            return True
+        return False
+    except Exception as e:
+        logger.error(f"更新或创建群组信息失败, group_id: {group_id}, 错误: {str(e)}")
+        raise DatabaseError(f"更新或创建群组信息失败: {str(e)}")

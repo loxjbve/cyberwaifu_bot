@@ -36,12 +36,18 @@ def load_config(config_file="./config/config.json"):
 
 
 
-def list_characters(char_dir="./characters/"):
+def list_characters(user_id, char_dir="./characters/"):
     """
     列出所有可用角色
     返回：角色名称列表
     """
-    return [f[:-len(os.path.splitext(f)[1])] for f in os.listdir(char_dir) if f.endswith((".txt", ".json"))]
+    result = []
+    for f in os.listdir(char_dir):
+        name, ext = os.path.splitext(f)
+        if ext in (".txt", ".json"):
+            if name.endswith("_public") or name.endswith(f"_{user_id}"):
+                result.append(name)
+    return result
 
 
 def load_prompts(prompt_file="./prompts/prompts.json"):

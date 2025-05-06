@@ -2,7 +2,7 @@ import logging
 from typing import Union
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from utils import file_utils as file, db_utils as db
-
+from bot_core import tg
 # 设置日志配置
 logging.basicConfig(
     level=logging.INFO,
@@ -45,17 +45,21 @@ def print_char_list(update: Update, char_type: str = 'private') -> Union[str, In
         Union[str, InlineKeyboardMarkup]: 如果没有角色返回提示，否则返回键盘标记。
     """
     try:
-        characters = file.list_characters()
-        if not characters:
-            return "没有可用的角色。"
+
         if char_type == 'private':
+            user_info = tg.user_info_get(update)
+            user_id = user_info['user_id']
+            characters = file.list_characters(user_id)
+            if not characters:
+                return "没有可用的角色。"
             keyboard = [
-                [InlineKeyboardButton(char, callback_data=f"set_char_{char}")] for char in characters
+                [InlineKeyboardButton(char.split('_')[0], callback_data=f"set_char_{char}")] for char in characters
             ]
         else:
             group_id = update.message.chat.id
+            characters = file.list_characters(group_id)
             keyboard = [
-                [InlineKeyboardButton(char, callback_data=f"group_char_{char}_{group_id}")] for char in characters
+                [InlineKeyboardButton(char.split('_')[0], callback_data=f"group_char_{char}_{group_id}")] for char in characters
             ]
         return InlineKeyboardMarkup(keyboard)
     except Exception as e:

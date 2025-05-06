@@ -79,7 +79,7 @@ def user_config_update(userid: int, char: str, api: str, preset: str, conv_id: i
 def user_config_new(userid: int) -> bool:
     """创建新用户配置"""
     command = "INSERT INTO user_config (char, api, preset, uid,stream) VALUES (?, ?, ?, ?,?)"
-    result = revise_db(command, ('cuicuishark', 'gemini-2', 'Default_meeting', userid,'no'))
+    result = revise_db(command, ('cuicuishark_public', 'gemini-2', 'Default_meeting', userid,'no'))
     return result > 0
 
 
@@ -363,7 +363,7 @@ def group_keyword_set(group_id: int, keywords: List[str]) -> bool:
 def group_info_create(group_id: int) -> bool:
     """创建群组信息"""
     command = "INSERT INTO groups (group_id, api, char, preset) VALUES (?, ?, ?, ?)"
-    result = revise_db(command, (group_id, 'gemini-2', 'cuicuishark', 'Default-meeting'))
+    result = revise_db(command, (group_id, 'gemini-2', 'cuicuishark_public', 'Default-meeting'))
     return result > 0
 
 

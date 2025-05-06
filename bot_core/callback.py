@@ -63,9 +63,10 @@ class CallbackHandler:
                 await _handle_delete_conversation(update, data[9:])
             elif data.startswith("group_char_"):
                 parts = data.split('_')
-                if len(parts) != 4 or parts[0] != 'group' or parts[1] != 'char':
+                print(f"parts{parts}")
+                if len(parts) != 5 or parts[0] != 'group' or parts[1] != 'char':
                     raise ValueError("Invalid string format")
-                await _handle_group_character(update, context, parts[2], int(parts[3]))
+                await _handle_group_character(update, context, f"{parts[2]}_{parts[3]}", int(parts[4]))
         except Exception as e:
             logger.error(f"处理回调查询失败, user_id: {user_id}, data: {data}, 错误: {str(e)}")
             raise BotError(f"处理回调{data} 失败: {str(e)}")
@@ -83,7 +84,7 @@ async def _handle_set_character(update: Update, character: str, user_id: int) ->
     _, api, preset, conv_id,_ = db.user_config_get(user_id)
     db.user_config_update(user_id, character, api, preset, conv_id)
     db.conversation_private_update(conv_id, character, preset)
-    await update.callback_query.message.edit_text(f"角色切换成功！当前角色: {character}。")
+    await update.callback_query.message.edit_text(f"角色切换成功！当前角色: {character.split('_')[0]}。")
 
 
 async def _handle_set_api(update: Update, api: str, user_id: int) -> None:
@@ -157,4 +158,4 @@ async def _handle_group_character(update: Update, context: ContextTypes.DEFAULT_
         await update.callback_query.answer("仅管理员可操作", show_alert=True)
         return
     db.group_info_update(group_id, 'char', char)
-    await update.callback_query.message.edit_text(f"切换角色成功！当前角色: {char}。")
+    await update.callback_query.message.edit_text(f"切换角色成功！当前角色: {char.split('_')[0]}。")

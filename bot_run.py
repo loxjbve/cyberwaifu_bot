@@ -282,7 +282,7 @@ async def msg_group_handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             await kw.handle_keyword_add_reply(update, context)
             return
         info = await tg.group_msg_parse(update)
-        await user.group_info_update_or_create(update, context)
+        await group.info_update_or_create(update, context)
         await group.dialog_add(info)
         needs_reply = await group.msg_needs_reply(update, context)
         logger.info(f"群聊消息检查回复需求，结果: {needs_reply}，用户ID: {update.effective_user.id}")
