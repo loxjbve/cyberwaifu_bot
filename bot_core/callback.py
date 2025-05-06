@@ -1,4 +1,4 @@
-import logging
+import logging,random
 from telegram import Update
 from telegram.ext import ContextTypes
 from utils import db_utils as db
@@ -105,11 +105,12 @@ async def _handle_del_character(update: Update, character: str, user_id: int) ->
     char_dir = './characters/'
     json_path = os.path.join(char_dir, f'{character}.json')
     txt_path = os.path.join(char_dir, f'{character}.txt')
+    delmark = str(random.randint(100000,999999))
     if os.path.exists(json_path):
-        del_path = os.path.join(char_dir, f'{character}_del.json')
+        del_path = os.path.join(char_dir, f'{character}_{delmark}_del.json')
         os.rename(json_path, del_path)
     elif os.path.exists(txt_path):
-        del_path = os.path.join(char_dir, f'{character}_del.txt')
+        del_path = os.path.join(char_dir, f'{character}_{delmark}_del.txt')
         os.rename(txt_path, del_path)
     await update.callback_query.message.edit_text(f"角色`{character.split('_')[0]}`删除成功！已为您切换默认角色`cuicuishark` 。")
 
