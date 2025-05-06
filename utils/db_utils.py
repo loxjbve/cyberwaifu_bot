@@ -9,6 +9,7 @@ default_preset = 'Default_meeting'
 default_character = 'cuicuishark_public'
 default_stream = 'no'
 
+
 def create_connection(db_file: str = "./data/data.db") -> Optional[sqlite3.Connection]:
     """创建数据库连接"""
     try:
@@ -58,20 +59,23 @@ def user_config_get(userid: int) -> Optional[Tuple]:
     result = query_db(command, (userid,))
     return result[0] if result else None
 
+
 def user_stream_get(userid: int) -> Optional[Tuple]:
     """获取用户是否开启流式"""
     command = "SELECT stream FROM user_config WHERE uid = ?"
     result = query_db(command, (userid,))
     return result[0][0] if result else None
 
+
 def user_stream_switch(userid: int) -> bool:
     """切换用户流式传输"""
-    if  user_stream_get(userid) == 'yes':
+    if user_stream_get(userid) == 'yes':
         command = "UPDATE  user_config set stream = 'no' WHERE uid = ?"
     else:
         command = "UPDATE  user_config set stream = 'yes' WHERE uid = ?"
     result = revise_db(command, (userid,))
     return result > 0
+
 
 def user_config_update(userid: int, char: str, api: str, preset: str, conv_id: int) -> bool:
     """更新用户配置"""
@@ -80,10 +84,17 @@ def user_config_update(userid: int, char: str, api: str, preset: str, conv_id: i
     return result > 0
 
 
+def user_config_arg_update(user_id: int, field: str, value: any) -> bool:
+    """更新用户配置信息"""
+    command = f"UPDATE user_config SET {field} = ? WHERE uid = ?"
+    result = revise_db(command, (value, user_id))
+    return result > 0
+
+
 def user_config_new(userid: int) -> bool:
     """创建新用户配置"""
     command = "INSERT INTO user_config (char, api, preset, uid,stream) VALUES (?, ?, ?, ?,?)"
-    result = revise_db(command, (default_character, default_api, default_preset, userid,default_stream))
+    result = revise_db(command, (default_character, default_api, default_preset, userid, default_stream))
     return result > 0
 
 
@@ -139,12 +150,14 @@ def user_info_update(userid: int, field: str, value: Any, increment: bool = Fals
     result = revise_db(command, (value, userid))
     return result > 0
 
-def dialog_content_add(conv_id: int, role: str, turn_order: int, raw_content: str, processed_content: str,msg_id: int,type: str = 'private') -> bool:
+
+def dialog_content_add(conv_id: int, role: str, turn_order: int, raw_content: str, processed_content: str, msg_id: int,
+                       type: str = 'private') -> bool:
     """添加对话内容"""
     create_at = str(datetime.datetime.now())
     if type == 'private':
         command = "INSERT INTO dialogs (conv_id, role, raw_content, turn_order, created_at, processed_content,msg_id) VALUES (?, ?, ?, ?, ?, ?, ?)"
-        result = revise_db(command, (conv_id, role, raw_content, turn_order, create_at, processed_content,msg_id))
+        result = revise_db(command, (conv_id, role, raw_content, turn_order, create_at, processed_content, msg_id))
         if result:
             command = "UPDATE conversations SET update_at = ? WHERE conv_id = ?"
             return revise_db(command, (create_at, conv_id)) > 0
@@ -235,6 +248,7 @@ def conversation_private_get(conv_id: int) -> Optional[Tuple]:
     result = query_db(command, (conv_id,))
     return result[0] if result else None
 
+
 def conversation_group_config_get(conv_id: int) -> Optional[Tuple]:
     """获取私聊对话信息"""
     command = "SELECT group_id FROM group_user_conversations WHERE conv_id = ?"
@@ -251,11 +265,23 @@ def conversation_private_update(conv_id: int, char: str, preset: str) -> bool:
     result = revise_db(command, (char, preset, conv_id))
     return result > 0
 
+
+def conversation_private_arg_update(conv_id: int, field: str, value: str or int, increment: bool = False) -> bool:
+    """更新私聊对话信息"""
+    if increment:
+        command = f"UPDATE conversations SET {field} = {field} + ? WHERE conv_id = ?"
+    else:
+        command = f"UPDATE conversations SET {field} = ? WHERE conv_id = ?"
+    result = revise_db(command, (value , conv_id))
+    return result > 0
+
+
 def conversation_private_delete(conv_id: int) -> bool:
     """更新私聊对话信息"""
     command = "UPDATE conversations SET delete_mark = ? WHERE conv_id = ?"
-    result = revise_db(command, ('yes',conv_id))
+    result = revise_db(command, ('yes', conv_id))
     return result > 0
+
 
 def conversation_private_check(conv_id: int) -> bool:
     """检查私聊对话是否存在，返回True表示不存在"""
@@ -332,6 +358,7 @@ def group_config_get(group_id: int) -> Optional[Tuple]:
     result = query_db(command, (group_id,))
     return result[0] if result else None
 
+
 def group_admin_list_get(group_id: int) -> List[str]:
     """获取群组管理员列表"""
     try:
@@ -341,6 +368,8 @@ def group_admin_list_get(group_id: int) -> List[str]:
     except Exception as e:
         print(f"获取群管理员错误: {e}")
         return []
+
+
 def group_keyword_get(group_id: int) -> List[str]:
     """获取群组关键词"""
     try:

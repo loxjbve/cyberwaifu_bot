@@ -265,6 +265,7 @@ async def _handle_non_streaming_response_background(info, client, model, prompts
         full_response = await llm.get_response_no_stream(client, model, prompts, config['conv_id'], 'private')
         response_token = llm.calculate_token_count(full_response)
         # 调用异步版本的 get_current_input_token
+        print(f"conv_id{config['conv_id']}")
         input_token = await llm.get_current_input_token(config['conv_id'], 'private', prompts)
         logger.info(
             f"非流式生成私聊回复完成, user_id: {user_id}, input_token: {input_token}, output_token: {response_token}")

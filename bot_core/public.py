@@ -63,7 +63,6 @@ def print_api_list(tier: int) -> Union[str, InlineKeyboardMarkup]:
 def print_preset_list() -> Union[str, InlineKeyboardMarkup]:
     """
     显示预设列表。
-
     Returns:
         Union[str, InlineKeyboardMarkup]: 如果没有预设返回提示，否则返回键盘标记。
     """
@@ -81,12 +80,12 @@ def print_preset_list() -> Union[str, InlineKeyboardMarkup]:
         raise BotError(f"获取预设列表失败: {str(e)}")
 
 
-def print_conversations(user_id, conv_type: str = 'load') -> Union[str, InlineKeyboardMarkup]:
+def print_conversations(user_id:int, conv_type: str = 'load') -> Union[str, InlineKeyboardMarkup]:
     """
     显示用户对话列表。
 
     Args:
-        update (Update): Telegram更新对象。
+        user_id (Update): Telegram用户id。
         conv_type (str): 操作类型，load或delete。
 
     Returns:

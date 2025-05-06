@@ -1,8 +1,9 @@
-import logging,random
+import logging, random
 from telegram import Update
 from telegram.ext import ContextTypes
 from utils import db_utils as db
-from bot_core import group
+from bot_core import group,tg,user
+
 # 设置日志配置
 logging.basicConfig(
     level=logging.INFO,
@@ -19,6 +20,7 @@ httpx_logger = logging.getLogger("httpx")
 httpx_logger.setLevel(logging.WARNING)
 httpx_logger.propagate = True
 default_char = 'cuicuishark_public'
+
 
 # 自定义异常类
 class BotError(Exception):
@@ -54,13 +56,13 @@ class CallbackHandler:
             if data.startswith("set_char_"):
                 await _handle_set_character(update, data[9:], user_id)
             elif data.startswith("del_char"):
-                await _handle_del_character(update,data[9:],user_id)
+                await _handle_del_character(update, data[9:], user_id)
             elif data.startswith("set_api_"):
                 await _handle_set_api(update, data[8:], user_id)
             elif data.startswith("set_preset_"):
                 await _handle_set_preset(update, data[11:], user_id)
             elif data.startswith("set_conv_"):
-                await _handle_set_conversation(update, data[9:], user_id)
+                await _handle_set_conversation(update,data[9:], user_id)
             elif data.startswith("del_conv_"):
                 await _handle_delete_conversation(update, data[9:])
             elif data.startswith("group_char_"):
@@ -74,19 +76,8 @@ class CallbackHandler:
             raise BotError(f"处理回调{data} 失败: {str(e)}")
 
 
-async def _handle_set_character(update: Update, character: str, user_id: int) -> None:
-    """
-    处理角色设置回调。
 
-    Args:
-        update (Update): Telegram更新对象。
-        character (str): 角色名。
-        user_id (int): 用户ID。
-    """
-    _, api, preset, conv_id,_ = db.user_config_get(user_id)
-    db.user_config_update(user_id, character, api, preset, conv_id)
-    db.conversation_private_update(conv_id, character, preset)
-    await update.callback_query.message.edit_text(f"角色切换成功！当前角色: {character.split('_')[0]}。")
+
 
 async def _handle_del_character(update: Update, character: str, user_id: int) -> None:
     """
@@ -98,21 +89,37 @@ async def _handle_del_character(update: Update, character: str, user_id: int) ->
         user_id (int): 用户ID。
     """
     import os
-    _, api, preset, conv_id,_ = db.user_config_get(user_id)
-    db.user_config_update(user_id, default_char, api, preset, conv_id)
-    db.conversation_private_update(conv_id, character, preset)
+    config = user.config_get(user_id)
+    db.user_config_arg_update(user_id, 'char',default_char)
+    db.conversation_private_arg_update(config['conv_id'],'character',default_char)
     # 处理角色文件重命名逻辑
     char_dir = './characters/'
     json_path = os.path.join(char_dir, f'{character}.json')
     txt_path = os.path.join(char_dir, f'{character}.txt')
-    delmark = str(random.randint(100000,999999))
+    delmark = str(random.randint(100000, 999999))
     if os.path.exists(json_path):
         del_path = os.path.join(char_dir, f'{character}_{delmark}_del.json')
         os.rename(json_path, del_path)
     elif os.path.exists(txt_path):
         del_path = os.path.join(char_dir, f'{character}_{delmark}_del.txt')
         os.rename(txt_path, del_path)
-    await update.callback_query.message.edit_text(f"角色`{character.split('_')[0]}`删除成功！已为您切换默认角色`cuicuishark` 。")
+    await update.callback_query.message.edit_text(
+        f"角色`{character.split('_')[0]}`删除成功！已为您切换默认角色`cuicuishark` 。")
+
+async def _handle_set_character(update: Update, character: str, user_id: int) -> None:
+    """
+    处理角色设置回调。
+
+    Args:
+        update (Update): Telegram更新对象。
+        character (str): 角色名。
+        user_id (int): 用户ID。
+    """
+    try:
+        if db.user_config_arg_update(user_id,'char',character):
+            await update.callback_query.message.edit_text(f"角色切换成功！当前角色: {character.split('_')[0]}。")
+    except Exception as e:
+        logger.error(f"设置角色失败, 错误: {str(e)}")
 
 async def _handle_set_api(update: Update, api: str, user_id: int) -> None:
     """
@@ -123,9 +130,11 @@ async def _handle_set_api(update: Update, api: str, user_id: int) -> None:
         api (str): API名。
         user_id (int): 用户ID。
     """
-    char, _, preset, conv_id,_ = db.user_config_get(user_id)
-    db.user_config_update(user_id, char, api, preset, conv_id)
-    await update.callback_query.message.edit_text(f"角色切换成功！当前api: {api}。")
+    try:
+        if db.user_config_arg_update(user_id,'api',api):
+            await update.callback_query.message.edit_text(f"api切换成功！当前api: {api}。")
+    except Exception as e:
+        logger.error(f"设置api失败, 错误: {str(e)}")
 
 
 async def _handle_set_preset(update: Update, preset: str, user_id: int) -> None:
@@ -137,10 +146,11 @@ async def _handle_set_preset(update: Update, preset: str, user_id: int) -> None:
         preset (str): 预设名。
         user_id (int): 用户ID。
     """
-    char, api, _, conv_id,_ = db.user_config_get(user_id)
-    db.user_config_update(user_id, char, api, preset, conv_id)
-    db.conversation_private_update(conv_id, char, preset)
-    await update.callback_query.message.edit_text(f"预设切换成功！当前预设: {preset}。")
+    try:
+        if db.user_config_arg_update(user_id,'preset',preset):
+            await update.callback_query.message.edit_text(f"预设切换成功！当前预设: {preset}。")
+    except Exception as e:
+        logger.error(f"设置预设失败, 错误: {str(e)}")
 
 
 async def _handle_set_conversation(update: Update, conv_id: int, user_id: int) -> None:
@@ -152,11 +162,14 @@ async def _handle_set_conversation(update: Update, conv_id: int, user_id: int) -
         conv_id (str): 对话ID。
         user_id (int): 用户ID。
     """
-    _, api, _, _,_ = db.user_config_get(user_id)
-    char, preset = db.conversation_private_get(conv_id)
-    db.user_config_update(user_id, char, api, preset, conv_id)
-    db.conversation_private_update(conv_id, char, preset)
-    await update.callback_query.message.edit_text(f"加载对话成功！当前对话: {conv_id}。")
+    try:
+        if db.user_config_arg_update(user_id,'conv_id',conv_id):
+            char,preset = db.conversation_private_get(conv_id)
+            if db.user_config_arg_update(user_id,'preset',preset) and db.user_config_arg_update(user_id,'char',char):
+                await update.callback_query.message.edit_text(f"加载对话成功！当前对话: {conv_id}。")
+    except Exception as e:
+        logger.error(f"设置对话失败, 错误: {str(e)}")
+
 
 
 async def _handle_delete_conversation(update: Update, conv_id: int) -> None:

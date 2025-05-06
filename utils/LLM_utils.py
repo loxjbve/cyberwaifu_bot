@@ -1,3 +1,5 @@
+import logging
+
 import openai
 import tiktoken
 from utils import db_utils as db
@@ -5,8 +7,11 @@ from utils import file_utils as file
 from utils import market_utils as market
 import asyncio
 import re
+
 default_api = 'gemini-2'
 default_char = 'cuicuishark_public'
+
+
 def build_client(key: str, url: str, model: str) -> tuple[openai.AsyncOpenAI, str]:
     """构建 OpenAI 异步客户端并返回客户端和模型名称。"""
     try:
@@ -35,6 +40,7 @@ async def get_response_no_stream(client: openai.AsyncOpenAI, model, current_inpu
     #print(f"model:{model}\r\ninput:{current_input}\r\nconv_id:{conv_id}\r\ntype:{type}")
     try:
         messages = await get_full_msg(conv_id, type, current_input)
+        print(f"完整prompts:{str(messages)}")
         response = await client.chat.completions.create(
             model=model,
             messages=messages,
