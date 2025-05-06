@@ -40,7 +40,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         f"您好，{info['first_name']} {info['last_name']}！这是由 @Xi_cuicui 开发的`CyberWaifu`项目。\r\n已为您创建用户档案。\r\n使用`/char`可以切换角色\r\n"
         f"使用`/preset`可切换聊天预设\r\n使用`/new`可展开新对话\r\n使用`/save`可以保存当前会话，并通过`/load` `/delete`读取或删除\r\n"
-        f"使用`/stream`可切换流式传输模式\r\n使用`/creatchar`和`/delchar`可以管理您的角色")
+        f"使用`/stream`可切换流式传输模式\r\n使用`/newchar`和`/delchar`可以管理您的角色")
 
 
 @handle_command_errors
