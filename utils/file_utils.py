@@ -1,9 +1,11 @@
-import os
-import json
-import time
+import json, os
+
+config_path = "./config/config.json"
+characters_path = "./characters/"
+prompt_path = "./prompts/prompts.json"
 
 
-def load_config(config_file="./config/config.json"):
+def load_config(config_file=config_path):
     """
     从 JSON 文件加载配置
     返回：(TG_TOKEN, API_LIST, KEYWORDS, whitelist) 或在出错时返回 None
@@ -25,7 +27,6 @@ def load_config(config_file="./config/config.json"):
         if not API_LIST:
             raise ValueError("配置文件中未找到 api_list")
 
-
         # print("配置文件加载成功")
         return TG_TOKEN, API_LIST
 
@@ -34,15 +35,9 @@ def load_config(config_file="./config/config.json"):
         return None
 
 
-
-
-import os
-
-def list_characters(user_id: int, type: str = 'load', char_dir: str = "./characters/") -> list[str]:
+def list_all_characters(char_dir: str = characters_path) -> list[str]:
     """
     列出所有可用角色
-    :param user_id: 用户ID，用于过滤角色
-    :param type: 操作类型，'load'为加载，'del'为删除
     :param char_dir: 角色文件目录
     :return: 角色名称列表
     """
@@ -51,15 +46,11 @@ def list_characters(user_id: int, type: str = 'load', char_dir: str = "./charact
         name, ext = os.path.splitext(f)
         if ext not in (".txt", ".json"):
             continue
-        if type == 'load' and (name.endswith("_public") or name.endswith(f"_{user_id}")):
-            result.append(name)
-        elif type == 'del' and name.endswith(f"_{user_id}"):
-            result.append(name)
+        result.append(name)
     return result
 
 
-
-def load_prompts(prompt_file="./prompts/prompts.json"):
+def load_prompts(prompt_file: str = prompt_path):
     """
     加载预设文件
     返回：预设列表或 None

@@ -119,7 +119,7 @@ async def handle_group_message(update) -> Optional[str]:
 
 async def handle_private_message(update: Update) -> Optional[str]:
     """处理私聊消息"""
-    user_info = tg.user_info_get(update)
+    user_info = tg.user_msg_parse(update)
     input_text = update.message.text
     config = user.config_get(user_info['user_id'])
     use_stream = config['stream'] == 'yes'

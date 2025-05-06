@@ -11,6 +11,7 @@ from threading import Thread
 from telegram import Update
 from datetime import datetime
 from datetime import timedelta
+
 # 设置日志配置
 logging.basicConfig(
     level=logging.INFO,
@@ -27,19 +28,11 @@ httpx_logger = logging.getLogger("httpx")
 httpx_logger.setLevel(logging.WARNING)
 httpx_logger.propagate = True
 
+
 class BotError(Exception):
     """自定义Bot异常基类"""
     pass
 
-
-class DatabaseError(BotError):
-    """数据库操作相关异常"""
-    pass
-
-
-class LLMError(BotError):
-    """LLM服务调用相关异常"""
-    pass
 
 def is_private_chat(update: Update) -> bool:
     """
@@ -53,7 +46,8 @@ def is_private_chat(update: Update) -> bool:
     """
     return update.message.chat.type == 'private'
 
-def user_info_get(update: Update) -> Dict:
+
+def user_msg_parse(update: Update) -> Dict:
     """
     获取Telegram用户信息。
 
@@ -70,7 +64,9 @@ def user_info_get(update: Update) -> Dict:
     last_name = user.last_name or ''
     text = update.message.text or ''
     msg_id = update.message.message_id or 0
-    return {'user_id': user_id, 'username': username, 'first_name': first_name, 'last_name': last_name,'text': text,'msg_id': msg_id}
+    return {'user_id': user_id, 'username': username, 'first_name': first_name, 'last_name': last_name, 'text': text,
+            'msg_id': msg_id}
+
 
 @lru_cache(maxsize=1000)
 def is_message_expired(update: Update) -> bool:
@@ -90,13 +86,13 @@ def is_message_expired(update: Update) -> bool:
     logger.debug(f"检查消息是否过期，时间差: {time_diff}")
     return time_diff > timedelta(seconds=30)
 
-async def group_msg_parse(update: Update) -> Dict:
+
+async def group_msg_parse(update: Update) -> Dict or bool:
     """
     解析群聊消息内容。
 
     Args:
         update (Update): Telegram更新对象。
-        context (ContextTypes.DEFAULT_TYPE): 上下文对象。
 
     Returns:
         Union[Tuple[int, str, int, str, str, int], bool]: 解析结果或False。
@@ -115,7 +111,8 @@ async def group_msg_parse(update: Update) -> Dict:
         if not message_text and update.message.caption:
             message_text = update.message.caption
         message_id = update.message.message_id
-        return {'group_id': group_id, 'user_id': user_id, 'message_id': message_id, 'message_text': message_text,'group_name': group_name,'user_name': user_name}
+        return {'group_id': group_id, 'user_id': user_id, 'message_id': message_id, 'message_text': message_text,
+                'group_name': group_name, 'user_name': user_name}
     except Exception as e:
         logger.error(f"解析群聊消息失败, 错误: {str(e)}")
         return False

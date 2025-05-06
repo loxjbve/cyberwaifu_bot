@@ -44,7 +44,7 @@ def info_get(user_id) -> Dict:
         logger.error(f"获取用户信息失败, user_id: {user_id}, 错误: {str(e)}")
         raise DatabaseError(f"获取用户信息失败: {str(e)}")
 
-def info_update_or_create(user_id, user_name, first_name, last_name) -> str:
+def info_update(user_id, user_name, first_name, last_name) -> str:
     try:
         if db.user_config_check(user_id):
             db.user_info_update(user_id, 'first_name', first_name)

@@ -34,9 +34,9 @@ def check_message_and_user(func):
             logger.warning(f"忽略过期的 /{command_name} 命令，消息ID: {update.message.message_id}")
             return None  # Stop processing if message is expired
 
-        user_info = tg.user_info_get(update)
+        user_info = tg.user_msg_parse(update)
         user_config = user.config_get(user_info['user_id'])
-        if not user.info_update_or_create(user_info['user_id'], user_info['username'], user_info['first_name'], user_info['last_name']):
+        if not user.info_update(user_info['user_id'], user_info['username'], user_info['first_name'], user_info['last_name']):
             # Log if user update/creation failed, though the current logic proceeds anyway
             logger.warning(f"用户 {user_info['user_id']} 信息更新/创建失败，但仍继续处理 /{command_name} 命令")
             # Decide if you want to stop processing if user update fails
