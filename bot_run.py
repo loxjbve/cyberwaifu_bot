@@ -370,7 +370,8 @@ async def handle_newchar_input(update: Update, context: ContextTypes.DEFAULT_TYP
     user_id = tg.user_info_get(update)['user_id']
     state = context.bot_data.get('newchar_state', {}).get(user_id)
     if not state:
-        return  # 非角色描述输入状态，交由其他handler处理
+        await msg_private_handle(update,context) # 非角色描述输入状态，交由其他handler处理
+        return
     # 文件输入
     if update.message.document:
         file = update.message.document
@@ -517,13 +518,9 @@ def main() -> None:
         app.add_handler(CommandHandler("delete", delete, filters=filters.ChatType.PRIVATE))
         app.add_handler(CommandHandler("stream", stream, filters=filters.ChatType.PRIVATE))
         app.add_handler(CommandHandler('done', done, filters=filters.ChatType.PRIVATE))
-
-        # 添加消息处理器（只处理私聊消息）
         app.add_handler(MessageHandler(filters.TEXT | filters.Document.ALL, handle_newchar_input), group=0)
         app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE, msg_private_handle))
 
-
-        # 添加命令处理器（只处理群聊中的命令）
         app.add_handler(CommandHandler("cremake", remake, filters=filters.ChatType.GROUP | filters.ChatType.SUPERGROUP))
         app.add_handler(CommandHandler("switch", switch, filters=filters.ChatType.GROUP | filters.ChatType.SUPERGROUP))
         app.add_handler(
