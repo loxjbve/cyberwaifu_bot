@@ -22,7 +22,9 @@ logger = logging.getLogger(__name__)
 httpx_logger = logging.getLogger("httpx")
 httpx_logger.setLevel(logging.WARNING)
 httpx_logger.propagate = True
-
+default_char = 'cuicuishark_public'
+default_preset = 'Default_meeting'
+default_api = 'gemini-2'
 class BotError(Exception):
     """自定义Bot异常基类"""
     pass
@@ -159,7 +161,7 @@ async def info_update_or_create(update,context) -> bool:
                 api, char, preset = config[0], config[1], config[2]
             else:
                 db.group_info_create(group_id)
-                api, char, preset = 'gemini-2', 'cuicuishark_public', 'Default_meeting'
+                api, char, preset = default_api, default_char, default_preset
             field_list = ['group_name', 'update_time', 'members_list', 'api', 'char', 'preset']
             value_list = [group_name, current_time, str(admin_list), api, char, preset]
             for field, value in zip(field_list, value_list):

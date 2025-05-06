@@ -5,7 +5,8 @@ from utils import file_utils as file
 from utils import market_utils as market
 import asyncio
 import re
-
+default_api = 'gemini-2'
+default_char = 'cuicuishark_public'
 def build_client(key: str, url: str, model: str) -> tuple[openai.AsyncOpenAI, str]:
     """构建 OpenAI 异步客户端并返回客户端和模型名称。"""
     try:
@@ -18,7 +19,7 @@ async def generate_summary(conv_id):
     try:
         history = build_openai_messages(conv_id)
         history.append({"role": "user", "content": f"请你总结以上对话，输出话题名称，不要超过20字"})
-        api = get_api_config('gemini-2')
+        api = get_api_config(default_api)
         client,model = build_client(api[0], api[1], api[2])
         response = await client.chat.completions.create(
             model= model,
@@ -97,7 +98,7 @@ async def get_full_msg(conv_id, type, current_input):
         char,_ = db.conversation_group_config_get(conv_id)
         #print(f"回复角色:{char}")
 
-    if char and char == 'cuicuishark':
+    if char and char == default_char:
         insert_coin = market.check_coin(current_input)
         if insert_coin:
             df = await asyncio.to_thread(market.get_candlestick_data, insert_coin)

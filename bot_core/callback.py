@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 httpx_logger = logging.getLogger("httpx")
 httpx_logger.setLevel(logging.WARNING)
 httpx_logger.propagate = True
-
+default_char = 'cuicuishark_public'
 
 # 自定义异常类
 class BotError(Exception):
@@ -99,7 +99,7 @@ async def _handle_del_character(update: Update, character: str, user_id: int) ->
     """
     import os
     _, api, preset, conv_id,_ = db.user_config_get(user_id)
-    db.user_config_update(user_id, 'cuicuishark_public', api, preset, conv_id)
+    db.user_config_update(user_id, default_char, api, preset, conv_id)
     db.conversation_private_update(conv_id, character, preset)
     # 处理角色文件重命名逻辑
     char_dir = './characters/'

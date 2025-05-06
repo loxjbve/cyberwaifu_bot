@@ -4,6 +4,10 @@ import sqlite3
 from sqlite3 import Error
 from typing import Any, List, Optional, Tuple
 
+default_api = 'gemini-2'
+default_preset = 'Default_meeting'
+default_character = 'cuicuishark_public'
+default_stream = 'no'
 
 def create_connection(db_file: str = "./data/data.db") -> Optional[sqlite3.Connection]:
     """创建数据库连接"""
@@ -79,7 +83,7 @@ def user_config_update(userid: int, char: str, api: str, preset: str, conv_id: i
 def user_config_new(userid: int) -> bool:
     """创建新用户配置"""
     command = "INSERT INTO user_config (char, api, preset, uid,stream) VALUES (?, ?, ?, ?,?)"
-    result = revise_db(command, ('cuicuishark_public', 'gemini-2', 'Default_meeting', userid,'no'))
+    result = revise_db(command, (default_character, default_api, default_preset, userid,default_stream))
     return result > 0
 
 
@@ -363,7 +367,7 @@ def group_keyword_set(group_id: int, keywords: List[str]) -> bool:
 def group_info_create(group_id: int) -> bool:
     """创建群组信息"""
     command = "INSERT INTO groups (group_id, api, char, preset) VALUES (?, ?, ?, ?)"
-    result = revise_db(command, (group_id, 'gemini-2', 'cuicuishark_public', 'Default-meeting'))
+    result = revise_db(command, (group_id, default_api, default_character, default_preset))
     return result > 0
 
 
