@@ -98,17 +98,18 @@ async def group_delete(group_info) -> str:
         raise DatabaseError(f"删除群聊对话失败: {str(e)}")
 
 
-async def private_save(conv_id) -> str:
+async def private_save(config) -> str:
     try:
-        if db.conversation_private_save(conv_id):
-            summary = await llm.generate_summary(conv_id)
+
+        if db.conversation_private_update(config['conv_id'],config['char'],config['preset']) and db.conversation_private_save(config['conv_id']):
+            summary = await llm.generate_summary(config['conv_id'])
             print(f'总结:{summary}')
-            if db.conversation_private_summary_add(conv_id, summary):
-                logger.info(f"保存对话并生成总结, conv_id: {conv_id}, summary: {summary}")
+            if db.conversation_private_summary_add(config['conv_id'], summary):
+                logger.info(f"保存对话并生成总结, conv_id: {config['conv_id']}, summary: {summary}")
                 return f"保存成功，对话总结:`{summary}`"
         return "保存失败"
     except Exception as e:
-        logger.error(f"保存对话失败, conv_id: {conv_id}, 错误: {str(e)}")
+        logger.error(f"保存对话失败, conv_id: {config['conv_id']}, 错误: {str(e)}")
         raise BotError(f"保存对话失败: {str(e)}")
 
 
