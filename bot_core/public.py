@@ -35,6 +35,7 @@ def update_parser(update: Update) -> dict:
     try:
         if update.message:
             user_id = update.message.from_user.id
+            print(f"获取用户id{user_id}")
             user_firstname = update.message.from_user.first_name or ''
             user_lastname = update.message.from_user.last_name or ''
             username = update.message.from_user.username or ''
@@ -54,7 +55,15 @@ def update_parser(update: Update) -> dict:
                 'group_id': group_id,
                 'group_name': group_name
             }
+            result = {**config, **user_info, **msg_info}
+            #print(f"返回{result}")
             return {**config, **user_info, **msg_info}
+        elif update.callback_query:
+            user_id = update.callback_query.from_user.id
+            config = user.config_get(user_id) or {}
+            user_info = user.info_get(user_id) or {}
+            result = {**user_info, **config}
+            return result
     except Exception as e:
         logger.error(f"解析用户信息错误: {str(e)}")
         raise BotError(f"解析用户信息错误: {str(e)}")

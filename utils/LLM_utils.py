@@ -148,7 +148,7 @@ async def get_full_msg(conv_id, chat_type, current_input, split=False):
         prompts = prompt.split_prompts(current_input)
         messages.insert(0, {"role": "system", "content": prompts['system']})
         messages.append({"role": "user", "content": prompts['user']})
-    # print(f"最终构建结果：\r\n{messages}")
+    print(f"最终构建结果：\r\n{messages}")
     return messages
 
 
