@@ -65,7 +65,7 @@ def config_get(user_id) -> Dict:
     try:
         result = db.user_config_get(user_id)
         if not result:
-            db.user_config_new(user_id)
+            db.user_config_create(user_id)
             result = db.user_config_get(user_id)
             logger.info(f"为新用户{user_id}创建默认配置")
         return {'char':result[0],'api':result[1],'preset':result[2],'conv_id':result[3],'stream':result[4],'user_id':user_id}
