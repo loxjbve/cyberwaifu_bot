@@ -2,7 +2,7 @@ import logging
 from typing import Union
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from utils import file_utils as file, db_utils as db
-from bot_core import tg
+from bot_core import user
 
 # 设置日志配置
 logging.basicConfig(
@@ -29,6 +29,35 @@ class BotError(Exception):
 class DatabaseError(BotError):
     """数据库操作相关异常"""
     pass
+
+
+def update_parser(update: Update) -> dict:
+    try:
+        if update.message:
+            user_id = update.message.from_user.id
+            user_firstname = update.message.from_user.first_name or ''
+            user_lastname = update.message.from_user.last_name or ''
+            username = update.message.from_user.username or ''
+            message_id = update.message.message_id or ''
+            message_text = update.message.text or ''
+            group_id = update.message.chat.id or ''
+            group_name = update.message.chat.title or ''
+            config = user.config_get(user_id) or {}
+            user_info = user.info_get(user_id) or {}
+            msg_info = {
+                'user_id': user_id,
+                'first_name': user_firstname,
+                'last_name': user_lastname,
+                'username': username,
+                'message_id': message_id,
+                'message_text': message_text,
+                'group_id': group_id,
+                'group_name': group_name
+            }
+            return {**config, **user_info, **msg_info}
+    except Exception as e:
+        logger.error(f"解析用户信息错误: {str(e)}")
+        raise BotError(f"解析用户信息错误: {str(e)}")
 
 
 def print_api_list(tier: int) -> Union[str, InlineKeyboardMarkup]:
@@ -80,7 +109,7 @@ def print_preset_list() -> Union[str, InlineKeyboardMarkup]:
         raise BotError(f"获取预设列表失败: {str(e)}")
 
 
-def print_conversations(user_id:int, conv_type: str = 'load') -> Union[str, InlineKeyboardMarkup]:
+def print_conversations(user_id: int, conv_type: str = 'load') -> Union[str, InlineKeyboardMarkup]:
     """
     显示用户对话列表。
 

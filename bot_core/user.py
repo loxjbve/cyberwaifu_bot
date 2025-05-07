@@ -39,7 +39,10 @@ class LLMError(BotError):
 def info_get(user_id) -> Dict:
     try:
         result = db.user_info_get(user_id)
-        return {'user_name':f"{result[0]}{result[1]}",'first_name': result[0], 'last_name': result[1],'tier': result[2],'remain': result[3],'balance': result[4]}
+        if result:
+            return {'user_name':f"{result[0]}{result[1]}",'first_name': result[0], 'last_name': result[1],'tier': result[2],'remain': result[3],'balance': result[4]}
+        else:
+            return{}
     except Exception as e:
         logger.error(f"获取用户信息失败, user_id: {user_id}, 错误: {str(e)}")
         raise DatabaseError(f"获取用户信息失败: {str(e)}")

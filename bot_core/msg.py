@@ -212,6 +212,9 @@ async def handle_streaming(update) -> None:
         await _finalize_message(sent_message, cleared_response)
         # 记录 token 和对话内容 (awaiting the async function)
         await conv.dialog_add(user_id, config['conv_id'], prompts, input_text, full_response, cleared_response, msg_id)
+        if not cleared_response.startswith('API调用失败:'):
+            if db.user_info_update(user_id,'remain_frequency',-1,True):
+                logger.info(f"{user.info_get(user_id)['user_name']}已扣除，剩余{user.info_get(user_id)['remain']}")
     except Exception as e:
         logger.error(f"处理流式响应时出错: {e}", exc_info=True)
         if sent_message:

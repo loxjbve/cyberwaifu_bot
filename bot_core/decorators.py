@@ -2,7 +2,7 @@ import functools
 import logging
 from telegram import Update
 from telegram.ext import ContextTypes
-from bot_core import tg, user
+from bot_core import tg, user,public
 # from bot_run import BotRunError  # Assuming BotRunError is defined in bot_run.py
 from bot_core.exceptions import BotRunError # Import from new exceptions file
 
@@ -34,18 +34,15 @@ def check_message_and_user(func):
             logger.warning(f"忽略过期的 /{command_name} 命令，消息ID: {update.message.message_id}")
             return None  # Stop processing if message is expired
 
-        user_info = tg.user_msg_parse(update)
-        user_config = user.config_get(user_info['user_id'])
-        if not user.info_update(user_info['user_id'], user_info['username'], user_info['first_name'], user_info['last_name']):
+        info = public.update_parser(update)
+        if not user.info_update(info['user_id'], info['username'], info['first_name'], info['last_name']):
             # Log if user update/creation failed, though the current logic proceeds anyway
-            logger.warning(f"用户 {user_info['user_id']} 信息更新/创建失败，但仍继续处理 /{command_name} 命令")
+            logger.warning(f"用户 {info['user_id']} 信息更新/创建失败，但仍继续处理 /{command_name} 命令")
             # Decide if you want to stop processing if user update fails
             # return None
 
-
-
         # Log command processing start after checks pass
-        logger.info(f"处理 /{command_name} 命令，用户名称: {user_info['first_name']}{user_info['last_name']}")
+        logger.info(f"处理 /{command_name} 命令，用户名称: {info['first_name']}{info['last_name']}")
 
         # Proceed to the actual command logic
         return await func(update, context, *args, **kwargs)
