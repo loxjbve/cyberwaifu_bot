@@ -101,6 +101,8 @@ def build_openai_messages(conv_id, output_type='private'):
 
     if output_type == 'group':  # 如果 type 是 'group'，限制为最近的 5 轮对话
         dialog_history = dialog_history[-10:]
+    if output_type == 'private':
+        dialog_history = dialog_history[-70:]
 
     messages = []
     for role, turn_order, content in dialog_history:
@@ -135,7 +137,7 @@ async def get_full_msg(conv_id, chat_type, current_input, split=False):
             df = await asyncio.to_thread(market.get_candlestick_data, insert_coin)
             if df is not None:
                 current_input += (f"<market>\r\n这是{insert_coin}最近的走势，你需要详细输出具体的技术分析，需要提到其中的压力位(Supply)、支撑位("
-                                  f"Demand)的具体点位，并分析接下来有可能的走势：\r\n{str(df)}\r\n</market>>")
+                                  f"Demand)的具体点位，并分析接下来有可能的走势：\r\n{str(df)}\r\n</market>")
             else:
                 print(f"警告: 未能获取 {insert_coin} 的市场数据。")
     if chat_type == 'once':
@@ -148,7 +150,8 @@ async def get_full_msg(conv_id, chat_type, current_input, split=False):
         prompts = prompt.split_prompts(current_input)
         messages.insert(0, {"role": "system", "content": prompts['system']})
         messages.append({"role": "user", "content": prompts['user']})
-    print(f"最终构建结果：\r\n{messages}")
+    import logging
+    logging.info(f"最终构建结果：\r\n{messages}")
     return messages
 
 
