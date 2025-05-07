@@ -147,7 +147,7 @@ async def _generate_message_once_background(client, model,
                                             prompts_str, group_name, user_name, message_id, group_id,
                                             trigger_type, placeholder_message):
     try:
-        response = await llm.get_response_no_stream(client, model, prompts_str, conv_id=0, type='once')
+        response = await llm.get_response_no_stream(client, model, prompts_str, conv_id=0, output_type='once')
         response_token = llm.calculate_token_count(response)
         logger.info(
             f"一次性群聊回复完成, group_name: {group_name}, user_name: {user_name}, output_token: {response_token}")

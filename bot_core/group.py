@@ -4,9 +4,9 @@ import logging
 from typing import Union
 from telegram import Update
 from telegram.ext import ContextTypes
-from utils import db_utils as db
+from utils import db_utils as db,file_utils as file
 from bot_core import tg
-
+ADMIN = file.load_config()['admin']
 # 设置日志配置
 logging.basicConfig(
     level=logging.INFO,
@@ -59,7 +59,8 @@ async def admin_check(update: Update, context: ContextTypes.DEFAULT_TYPE, check_
             group_id = callback_query.message.chat.id
         admin_list = db.group_admin_list_get(group_id)
         #print(f"{group_id}管理员列表：{admin_list}，用户id:{user_id}")
-        return (user_id in admin_list) or str(user_id) == '7007822593'
+
+        return (user_id in admin_list) or (user_id in ADMIN)
     except Exception as e:
         logger.error(f"检查管理员权限失败, group_id: {group_id}, 错误: {str(e)}")
         raise DatabaseError(f"检查管理员权限失败: {str(e)}")

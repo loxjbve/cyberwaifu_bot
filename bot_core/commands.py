@@ -3,10 +3,11 @@ from utils import file_utils
 from telegram.ext import ContextTypes
 import logging
 from asyncio import Semaphore
-from bot_core import tg, user, msg, public, group
+from bot_core import tg, user, public, group
 from bot_core import conversation as conv
 from bot_core.decorators import handle_command_errors, check_message_and_user  # Import decorators
 from utils import db_utils as db
+
 # 设置日志配置
 logging.basicConfig(
     level=logging.INFO,
@@ -19,8 +20,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 semaphore = Semaphore(5)
-BOT_TOKEN= file_utils.load_config()['token']
+BOT_TOKEN = file_utils.load_config()['token']
 ADMIN = file_utils.load_config()['admin']
+
 
 @handle_command_errors
 @check_message_and_user
@@ -36,7 +38,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_info = tg.user_msg_parse(update)  # Still need user_id
     info = user.info_get(user_info['user_id'])
     await update.message.reply_text(
-        f"您好，{info['first_name']} {info['last_name']}！这是由 @Xi_cuicui 开发的`CyberWaifu`项目。\r\n已为您创建用户档案。\r\n使用`/char`可以切换角色\r\n"
+        f"您好，{info['first_name']} {info['last_name']}！这是由 @Xi_cuicui 开发的`CyberWaifu`项目。\r\n已为您创建用户档案。\r\n使用`/char"
+        f"`可以切换角色\r\n"
         f"使用`/preset`可切换聊天预设\r\n使用`/new`可展开新对话\r\n使用`/save`可以保存当前会话，并通过`/load` `/delete`读取或删除\r\n"
         f"使用`/stream`可切换流式传输模式\r\n使用`/newchar`和`/delchar`可以管理您的角色")
 
@@ -145,6 +148,7 @@ async def char(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     else:
         await update.message.reply_text("请选择一个角色：", reply_markup=markup)
 
+
 @handle_command_errors
 @check_message_and_user
 async def delchar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -162,6 +166,8 @@ async def delchar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(markup)
     else:
         await update.message.reply_text("请选择一个角色：", reply_markup=markup)
+
+
 @handle_command_errors
 @check_message_and_user
 async def newchar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -184,7 +190,8 @@ async def newchar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not hasattr(context.bot_data, 'newchar_state'):
         context.bot_data['newchar_state'] = {}
     context.bot_data['newchar_state'][user_id] = {'char_name': char_name, 'desc_chunks': []}
-    await update.message.reply_text(f"请上传角色描述文件（json/txt）或直接发送文本描述，完成后发送 /done 结束输入。\n如描述较长可分多条消息发送。")
+    await update.message.reply_text(
+        f"请上传角色描述文件（json/txt）或直接发送文本描述，完成后发送 /done 结束输入。\n如描述较长可分多条消息发送。")
 
 
 # 新增/done命令，完成角色描述输入
@@ -194,7 +201,8 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = tg.user_msg_parse(update)['user_id']
     state = context.bot_data.get('newchar_state', {}).get(user_id)
     if not state:
-        await update.message.reply_text("当前无待保存的角色描述。请先使用 /newchar char_name。"); return
+        await update.message.reply_text("当前无待保存的角色描述。请先使用 /newchar char_name。")
+        return
     char_name = state['char_name']
     import os
     save_dir = os.path.join(os.path.dirname(__file__), 'characters')
@@ -322,6 +330,7 @@ async def switch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # Decorator handles basic checks and user update
     if not await group.admin_check(update, context):
         logger.warning(f"非管理员尝试使用 /switch 命令，用户ID: {update.effective_user.id}")
+        await update.message.reply_text("该指令仅管理员可用")
         return
     group_info = await tg.group_msg_parse(update)
     markup = public.print_char_list('load', 'group', group_info['group_id'])

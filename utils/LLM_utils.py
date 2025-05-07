@@ -1,6 +1,5 @@
-import logging
-
-import openai,httpx
+import openai
+import httpx
 import tiktoken
 from utils import db_utils as db
 from utils import file_utils as file
@@ -40,10 +39,9 @@ async def generate_summary(conv_id):
         raise ValueError(f"生成总结失败: {str(e)}")
 
 
-async def get_response_no_stream(client: openai.AsyncOpenAI, model, current_input, conv_id=0, type='once'):
-    # print(f"model:{model}\r\ninput:{current_input}\r\nconv_id:{conv_id}\r\ntype:{type}")
+async def get_response_no_stream(client: openai.AsyncOpenAI, model, current_input, conv_id=0, output_type='once'):
     try:
-        messages = await get_full_msg(conv_id, type, current_input,True)
+        messages = await get_full_msg(conv_id, output_type, current_input, True)
         # print(f"完整prompts:{str(messages)}")
         response = await client.chat.completions.create(
             model=model,
@@ -56,9 +54,9 @@ async def get_response_no_stream(client: openai.AsyncOpenAI, model, current_inpu
         return str(RuntimeError(f"API调用失败: {str(e)}"))
 
 
-async def get_response_stream(client: openai.AsyncOpenAI, model, current_input, conv_id=0, type='once'):
+async def get_response_stream(client: openai.AsyncOpenAI, model, current_input, conv_id=0, output_type='once'):
     try:
-        messages = await get_full_msg(conv_id, type, current_input,True)
+        messages = await get_full_msg(conv_id, output_type, current_input, True)
         response = await client.chat.completions.create(
             model=model,
             messages=messages,
@@ -80,10 +78,14 @@ def get_api_config(api_name: str):
     raise ValueError(f"未找到名为 '{api_name}' 的API配置")
 
 
-def build_openai_messages(conv_id, type='private'):
-    dialog_history = db.dialog_content_load(conv_id, type)
+def build_openai_messages(conv_id, output_type='private'):
+    dialog_history = db.dialog_content_load(conv_id, output_type)
     if not dialog_history:
         return []
+
+    if output_type == 'group':  # 如果 type 是 'group'，限制为最近的 5 轮对话
+        dialog_history = dialog_history[-10:]
+
     messages = []
     for role, turn_order, content in dialog_history:
         formatted_role = role.lower()
@@ -104,37 +106,36 @@ def calculate_token_count(text: str) -> int:
         return len(text)
 
 
-async def get_full_msg(conv_id, type, current_input, split=False):
+async def get_full_msg(conv_id, chat_type, current_input, split=False):
     char = None  # Initialize char to None
-    if type == 'private':
+    if chat_type == 'private':
         char, _ = db.conversation_private_get(conv_id)
-        # print(f"回复角色:{char}")
-    elif type == 'group':
+    elif chat_type == 'group':
         char, _ = db.conversation_group_config_get(conv_id)
-        # print(f"回复角色:{char}")
 
     if char and char == default_char:
         insert_coin = market.check_coin(current_input)
         if insert_coin:
             df = await asyncio.to_thread(market.get_candlestick_data, insert_coin)
             if df is not None:
-                current_input += f"<market>\r\n这是{insert_coin}最近的走势，你需要详细输出具体的技术分析，需要提到其中的压力位(Supply)、支撑位(Demand)的具体点位，并分析接下来有可能的走势：\r\n{str(df)}\r\n</market>>"
+                current_input += (f"<market>\r\n这是{insert_coin}最近的走势，你需要详细输出具体的技术分析，需要提到其中的压力位(Supply)、支撑位("
+                                  f"Demand)的具体点位，并分析接下来有可能的走势：\r\n{str(df)}\r\n</market>>")
             else:
                 print(f"警告: 未能获取 {insert_coin} 的市场数据。")
-    if type == 'once':
+    if chat_type == 'once':
         messages = []
     else:
-        messages = await asyncio.to_thread(build_openai_messages, conv_id, type)
+        messages = await asyncio.to_thread(build_openai_messages, conv_id, chat_type)
     if not split:
         messages.append({"role": "user", "content": current_input})
     else:
         prompts = prompt.split_prompts(current_input)
         messages.insert(0, {"role": "system", "content": prompts['system']})
         messages.append({"role": "user", "content": prompts['user']})
-    #print(f"最终构建结果：\r\n{messages}")
+    # print(f"最终构建结果：\r\n{messages}")
     return messages
 
 
-async def get_current_input_token(conv_id, type, current_input,split = False):
-    full_msg_content = await get_full_msg(conv_id, type, current_input,split)
+async def get_current_input_token(conv_id, chat_type, current_input, split=False):
+    full_msg_content = await get_full_msg(conv_id, chat_type, current_input, split)
     return calculate_token_count(str(full_msg_content))
