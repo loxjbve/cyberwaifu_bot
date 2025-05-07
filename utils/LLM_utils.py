@@ -38,6 +38,22 @@ async def generate_summary(conv_id):
     except Exception as e:
         raise ValueError(f"生成总结失败: {str(e)}")
 
+async def generate_char(text):
+    try:
+        history = []
+        history.append({"role": "user", "content": f"{text}\r\n请你根据以上描述，适当扩充或省略，输出一份json格式的角色信息"})
+        api = get_api_config(default_api)
+        client, model = build_client(api[0], api[1], api[2])
+        response = await client.chat.completions.create(
+            model=model,
+            messages=history,
+            max_tokens=8000,
+            stream=False
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        raise ValueError(f"生成角色失败: {str(e)}")
+
 
 async def get_response_no_stream(client: openai.AsyncOpenAI, model, current_input, conv_id=0, output_type='once'):
     try:

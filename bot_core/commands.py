@@ -6,8 +6,10 @@ from asyncio import Semaphore
 from bot_core import tg, user, public, group
 from bot_core import conversation as conv
 from bot_core.decorators import handle_command_errors, check_message_and_user  # Import decorators
-from utils import db_utils as db
-
+from utils import db_utils as db, LLM_utils as llm
+import os
+import json
+import re
 # 设置日志配置
 logging.basicConfig(
     level=logging.INFO,
@@ -194,7 +196,6 @@ async def newchar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f"请上传角色描述文件（json/txt）或直接发送文本描述，完成后发送 /done 结束输入。\n如描述较长可分多条消息发送。")
 
 
-# 新增/done命令，完成角色描述输入
 @handle_command_errors
 @check_message_and_user
 async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -204,21 +205,41 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("当前无待保存的角色描述。请先使用 /newchar char_name。")
         return
     char_name = state['char_name']
-    import os
-    save_dir = os.path.join(os.path.dirname(__file__), 'characters')
+
+    # 明确指定保存目录为项目根目录下的 characters 文件夹
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))  # 假设当前文件在子目录中，回到根目录
+    save_dir = os.path.join(project_root, 'characters')
     os.makedirs(save_dir, exist_ok=True)
-    # 优先保存文件，如果有文件则直接提示，否则保存文本为txt
+    # 优先保存文件，如果有文件则直接提示，否则处理文本并保存
     if 'file_saved' in state:
         save_path = state['file_saved']
         del context.bot_data['newchar_state'][user_id]
         await update.message.reply_text(f"角色 {char_name} 已保存到 {save_path}")
         return
     desc = '\n'.join(state['desc_chunks'])
-    save_path = os.path.join(save_dir, f"{char_name}_{user_id}.txt")
-    with open(save_path, 'w', encoding='utf-8') as f:
-        f.write(desc)
-    del context.bot_data['newchar_state'][user_id]
-    await update.message.reply_text(f"角色 {char_name} 已保存到 {save_path}")
+    try:
+        generated_content = await llm.generate_char(desc)
+        json_pattern = r'```json\s*([\s\S]*?)\s*```|```([\s\S]*?)\s*```|\{[\s\S]*\}'
+        match = re.search(json_pattern, generated_content)
+        if match:
+            json_str = next(group for group in match.groups() if group)
+            char_data = json.loads(json_str)
+        else:
+            char_data = {"raw_content": generated_content}
+            await update.message.reply_text("警告：未能从生成内容中提取 JSON 数据，保存原始内容。")
+        save_path = os.path.join(save_dir, f"{char_name}_{user_id}.json")
+        with open(save_path, 'w', encoding='utf-8') as f:
+            json.dump(char_data, f, ensure_ascii=False, indent=2)
+        del context.bot_data['newchar_state'][user_id]
+        await update.message.reply_text(f"角色 {char_name} 已保存到 {save_path}")
+    except json.JSONDecodeError as e:
+        save_path = os.path.join(save_dir, f"{char_name}_{user_id}.txt")
+        with open(save_path, 'w', encoding='utf-8') as f:
+            f.write(generated_content)
+        del context.bot_data['newchar_state'][user_id]
+        await update.message.reply_text(f"错误：无法解析生成的 JSON 内容，保存为原始文本到 {save_path}。错误信息：{str(e)}")
+    except Exception as e:
+        await update.message.reply_text(f"保存角色 {char_name} 时发生错误：{str(e)}")
 
 
 @handle_command_errors

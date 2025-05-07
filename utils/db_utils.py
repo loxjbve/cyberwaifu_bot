@@ -11,6 +11,7 @@ DEFAULT_STREAM = 'no'
 DEFAULT_FREQUENCY = 200
 DEFAULT_BALANCE = 1.5
 
+
 def create_connection(db_file: str = "./data/data.db") -> Optional[sqlite3.Connection]:
     """创建数据库连接"""
     try:
@@ -131,7 +132,8 @@ def user_info_create(userid: int, first_name: str, last_name: str, user_name: st
     """创建用户信息"""
     create_at = str(datetime.datetime.now())
     command = "INSERT INTO users(uid,first_name,last_name,user_name,create_at,update_at,input_tokens,output_tokens,account_tier,remain_frequency,balance) VALUES (?, ?, ?, ?, ?, ?,?,?,?,?,?)"
-    result = revise_db(command, (userid, first_name, last_name, user_name, create_at, create_at, 0, 0, 0, DEFAULT_FREQUENCY, DEFAULT_BALANCE))
+    result = revise_db(command, (
+    userid, first_name, last_name, user_name, create_at, create_at, 0, 0, 0, DEFAULT_FREQUENCY, DEFAULT_BALANCE))
     return result > 0
 
 
@@ -156,7 +158,6 @@ def user_frequency_free(value: int) -> bool:
     command = f"UPDATE users set remain_frequency = remain_frequency+?"
     result = revise_db(command, (value,))
     return result > 0
-
 
 
 def dialog_content_add(conv_id: int, role: str, turn_order: int, raw_content: str, processed_content: str, msg_id: int,

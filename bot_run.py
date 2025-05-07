@@ -115,11 +115,7 @@ async def msg_private_handle(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     except Exception as e:
         logger.error(f"处理私聊消息时出错: {str(e)}", exc_info=True)
-        # Consider if BotRunError should be raised here too for consistency
-        # raise BotRunError(f"处理私聊消息失败: {str(e)}")
-        # For now, just log, as the global handler might catch it
-        # Optionally send a generic error message
-        # await update.message.reply_text("处理消息时发生错误，请稍后重试。")
+        await update.message.reply_text(f"处理消息时发生错误{str(e)}，请稍后重试。")
 
 
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
