@@ -109,7 +109,7 @@ async def save(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # Decorator handles checks and basic logging
     user_info = tg.user_msg_parse(update)  # Still need user_id
     config = user.config_get(user_info['user_id'])
-    result = await conv.private_save(config,user_info['user_id'])
+    result = await conv.private_save(config)
     await update.message.reply_text(f"{result}")
 
 
