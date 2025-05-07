@@ -151,6 +151,13 @@ def user_info_update(userid: int, field: str, value: Any, increment: bool = Fals
     return result > 0
 
 
+def user_frequency_free(value: int) -> bool:
+    command = f"UPDATE users set remain_frequency = remain_frequency+?"
+    result = revise_db(command, (value,))
+    return result > 0
+
+
+
 def dialog_content_add(conv_id: int, role: str, turn_order: int, raw_content: str, processed_content: str, msg_id: int,
                        type: str = 'private') -> bool:
     """添加对话内容"""
@@ -272,7 +279,7 @@ def conversation_private_arg_update(conv_id: int, field: str, value: str or int,
         command = f"UPDATE conversations SET {field} = {field} + ? WHERE conv_id = ?"
     else:
         command = f"UPDATE conversations SET {field} = ? WHERE conv_id = ?"
-    result = revise_db(command, (value , conv_id))
+    result = revise_db(command, (value, conv_id))
     return result > 0
 
 

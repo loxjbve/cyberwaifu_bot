@@ -2,8 +2,8 @@ import datetime
 import logging
 from typing import Dict
 from telegram import Update
-from utils import db_utils as db
-
+from utils import db_utils as db,file_utils as file
+ADMIN = file.load_config()['admin']
 # 设置日志配置
 logging.basicConfig(
     level=logging.INFO,
@@ -39,7 +39,7 @@ class LLMError(BotError):
 def info_get(user_id) -> Dict:
     try:
         result = db.user_info_get(user_id)
-        return {'first_name': result[0], 'last_name': result[1],'tier': result[2],'remain': result[3],'balance': result[4]}
+        return {'user_name':f"{result[0]}{result[1]}",'first_name': result[0], 'last_name': result[1],'tier': result[2],'remain': result[3],'balance': result[4]}
     except Exception as e:
         logger.error(f"获取用户信息失败, user_id: {user_id}, 错误: {str(e)}")
         raise DatabaseError(f"获取用户信息失败: {str(e)}")
@@ -76,4 +76,5 @@ def config_get(user_id) -> Dict:
 def stream_switch(user_id) -> bool:
     return db.user_stream_switch(user_id)
 
-
+def is_admin(user_id) ->bool:
+    return True if user_id in ADMIN else False

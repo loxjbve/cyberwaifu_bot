@@ -6,7 +6,7 @@ import logging
 from asyncio import Semaphore
 from bot_core import tg, user, msg, public, group, callback, keyword as kw,commands as cmd
 from bot_core.exceptions import BotRunError  # Import from new exceptions file
-
+ADMIN = file_utils.load_config()['admin']
 # 设置日志配置
 logging.basicConfig(
     level=logging.INFO,
@@ -20,9 +20,6 @@ logger = logging.getLogger(__name__)
 
 semaphore = Semaphore(5)
 BOT_TOKEN= file_utils.load_config()['token']
-ADMIN = file_utils.load_config()['admin']
-
-
 
 
 async def msg_group_handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -105,13 +102,16 @@ async def msg_private_handle(update: Update, context: ContextTypes.DEFAULT_TYPE)
         if user.info_update(user_info['user_id'], user_info['username'], user_info['first_name'],
                             user_info['last_name']):
             logger.info(f"处理私聊消息，用户ID: {user_info['user_id']}")
-            result = await msg.handle_private_message(update)
-            if result is not None:
-                try:
-                    await update.message.reply_text(result, parse_mode="markdown")
-                except telegram.error.BadRequest as e:
-                    logger.warning(f"Markdown 解析错误: {str(e)}, 禁用 Markdown 重试")
-                    await update.message.reply_text(result, parse_mode=None)
+            if user.info_get(user_info['user_id'])['remain']>0:
+                result = await msg.handle_private_message(update)
+                if result is not None:
+                    try:
+                        await update.message.reply_text(result, parse_mode="markdown")
+                    except telegram.error.BadRequest as e:
+                        logger.warning(f"Markdown 解析错误: {str(e)}, 禁用 Markdown 重试")
+                        await update.message.reply_text(result, parse_mode=None)
+            else:
+                await update.message.reply_text("您的额度已用尽")
 
     except Exception as e:
         logger.error(f"处理私聊消息时出错: {str(e)}", exc_info=True)
@@ -213,6 +213,7 @@ def main() -> None:
         app.add_handler(CommandHandler("delete", cmd.delete, filters=filters.ChatType.PRIVATE))
         app.add_handler(CommandHandler("stream", cmd.stream, filters=filters.ChatType.PRIVATE))
         app.add_handler(CommandHandler('done', cmd.done, filters=filters.ChatType.PRIVATE))
+        app.add_handler(CommandHandler('addf', cmd.addf, filters=filters.ChatType.PRIVATE))
         app.add_handler(MessageHandler((filters.TEXT | filters.Document.ALL) & ~filters.COMMAND & filters.ChatType.PRIVATE, handle_newchar_input), group=0)
         app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE, msg_private_handle))
 

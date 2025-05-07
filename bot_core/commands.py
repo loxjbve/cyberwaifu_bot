@@ -6,7 +6,7 @@ from asyncio import Semaphore
 from bot_core import tg, user, msg, public, group
 from bot_core import conversation as conv
 from bot_core.decorators import handle_command_errors, check_message_and_user  # Import decorators
-
+from utils import db_utils as db
 # 设置日志配置
 logging.basicConfig(
     level=logging.INFO,
@@ -329,3 +329,33 @@ async def switch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(markup)
     else:
         await update.message.reply_text("请选择一个角色：", reply_markup=markup)
+
+
+@handle_command_errors
+@check_message_and_user
+async def addf(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    处理 /addf 命令，管理员专用，接收 target_user_id 和 value 两个参数。
+    Args:
+        update (Update): Telegram 更新对象。
+        context (ContextTypes.DEFAULT_TYPE): 上下文对象。
+    """
+    user_info = tg.user_msg_parse(update)
+    user_id = user_info['user_id']
+    # 获取命令参数
+    args = context.args if hasattr(context, 'args') else []
+    if len(args) < 2:
+        await update.message.reply_text("请以 /addf target_user_id value 的格式输入参数。")
+        return
+    target_user_id = args[0]
+    value = int(args[1])
+    # 权限检查
+    if user.is_admin(user_id):
+        if target_user_id == 'all':
+            if db.user_frequency_free(value):
+                await update.message.reply_text(f"已为所有用户添加{value}条额度")
+        else:
+            if db.user_info_update(target_user_id, 'remain_frequency', value, True):
+                await update.message.reply_text(f"已为{user.info_get(target_user_id)['user_name']}添加{value}条额度")
+    else:
+        await update.message.reply_text("无权限操作，仅管理员可用。")

@@ -139,7 +139,7 @@ async def handle_private_message(update: Update) -> Optional[str]:
         # 非流式也使用后台任务处理
         placeholder_message = await update.message.reply_text("思考中...")  # 发送占位符
         asyncio.create_task(
-            _handle_non_streaming_response_background(user_info, client,model, prompts ,placeholder_message))
+            _process_non_streaming_response_background(user_info, client, model, prompts, placeholder_message))
         return None  # 立即返回
 
 
@@ -243,8 +243,8 @@ async def _process_streaming_response_background(client, model, prompts: str, co
     return "".join(response_chunks)
 
 
-async def _handle_non_streaming_response_background(info, client, model, prompts,
-                                                    placeholder_message: telegram.Message) -> None:
+async def _process_non_streaming_response_background(info, client, model, prompts,
+                                                     placeholder_message: telegram.Message) -> None:
     """
     处理非流式传输回复逻辑 (后台任务)。
 
@@ -284,6 +284,9 @@ async def _handle_non_streaming_response_background(info, client, model, prompts
         await asyncio.to_thread(db.user_info_update, user_id, 'dialog_turns', 2, True)
         # 编辑占位符消息
         await _finalize_message(placeholder_message, cleared_response)
+        if cleared_response.startswith('API调用失败:') == False:
+            if db.user_info_update(user_id,'remain_frequency',-1,True):
+                logger.info(f"{user.info_get(user_id)['user_name']}已扣除，剩余{user.info_get(user_id)['remain']}")
 
     except TypeError as te:
         # Catch the specific TypeError if calculate_token_count fails
