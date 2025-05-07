@@ -4,11 +4,12 @@ import sqlite3
 from sqlite3 import Error
 from typing import Any, List, Optional, Tuple
 
-default_api = 'gemini-2'
-default_preset = 'Default_meeting'
-default_character = 'cuicuishark_public'
-default_stream = 'no'
-
+DEFAULT_API = 'gemini-2'
+DEFAULT_PRESET = 'Default_meeting'
+DEFAULT_CHAR = 'cuicuishark_public'
+DEFAULT_STREAM = 'no'
+DEFAULT_FREQUENCY = 200
+DEFAULT_BALANCE = 1.5
 
 def create_connection(db_file: str = "./data/data.db") -> Optional[sqlite3.Connection]:
     """创建数据库连接"""
@@ -91,10 +92,10 @@ def user_config_arg_update(user_id: int, field: str, value: any) -> bool:
     return result > 0
 
 
-def user_config_new(userid: int) -> bool:
+def user_config_create(userid: int) -> bool:
     """创建新用户配置"""
     command = "INSERT INTO user_config (char, api, preset, uid,stream) VALUES (?, ?, ?, ?,?)"
-    result = revise_db(command, (default_character, default_api, default_preset, userid, default_stream))
+    result = revise_db(command, (DEFAULT_CHAR, DEFAULT_API, DEFAULT_PRESET, userid, DEFAULT_STREAM))
     return result > 0
 
 
@@ -129,8 +130,8 @@ def user_info_usage_get(userid: int, info: str) -> Any:
 def user_info_create(userid: int, first_name: str, last_name: str, user_name: str) -> bool:
     """创建用户信息"""
     create_at = str(datetime.datetime.now())
-    command = "INSERT INTO users VALUES (?, ?, ?, ?, ?, 0, 0, ?, 0, 0, 0, 0, 1.5)"
-    result = revise_db(command, (userid, first_name, last_name, user_name, create_at, create_at))
+    command = "INSERT INTO users(uid,first_name,last_name,user_name,create_at,update_at,input_tokens,output_tokens,account_tier,remain_frequency,balance) VALUES (?, ?, ?, ?, ?, ?,?,?,?,?,?)"
+    result = revise_db(command, (userid, first_name, last_name, user_name, create_at, create_at, 0, 0, 0, DEFAULT_FREQUENCY, DEFAULT_BALANCE))
     return result > 0
 
 
@@ -403,7 +404,7 @@ def group_keyword_set(group_id: int, keywords: List[str]) -> bool:
 def group_info_create(group_id: int) -> bool:
     """创建群组信息"""
     command = "INSERT INTO groups (group_id, api, char, preset) VALUES (?, ?, ?, ?)"
-    result = revise_db(command, (group_id, default_api, default_character, default_preset))
+    result = revise_db(command, (group_id, DEFAULT_API, DEFAULT_CHAR, DEFAULT_PRESET))
     return result > 0
 
 
