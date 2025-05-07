@@ -24,5 +24,6 @@
       "group":2
     }
   ],
-  "TG_TOKEN" : ""
+  "TG_TOKEN" : "",
+  "ADMIN" : []
 }
