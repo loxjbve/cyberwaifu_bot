@@ -139,8 +139,9 @@ def insert_character(raw_text: str, character: str) -> str:
     #print(f"{char_str}")
     return insert_text(raw_text, char_str, '</character>', 'before')
 
- # 用于正则表达式匹配
-
+def split_prompts(text:str) -> Dict:
+    prompts = text.split("以下是用户最新输入:\r\n")
+    return {"system":prompts[0],"user":prompts[1]}
 
 def build_prompts(character: str, input: str, set: str) -> str:
     #构建完整的提示文本，包括角色和用户输入。

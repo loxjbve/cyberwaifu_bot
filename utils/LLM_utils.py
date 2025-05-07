@@ -1,12 +1,12 @@
 import logging
 
-import openai
+import openai,httpx
 import tiktoken
 from utils import db_utils as db
 from utils import file_utils as file
 from utils import market_utils as market
 import asyncio
-import re
+from utils import prompt_utils as prompt
 
 default_api = 'gemini-2'
 default_char = 'cuicuishark_public'
@@ -15,19 +15,22 @@ default_char = 'cuicuishark_public'
 def build_client(key: str, url: str, model: str) -> tuple[openai.AsyncOpenAI, str]:
     """构建 OpenAI 异步客户端并返回客户端和模型名称。"""
     try:
-        client = openai.AsyncOpenAI(api_key=key, base_url=url)
-        return client, model # 返回客户端和模型名称的元组
+        print(f"使用{key},{model}获取{url}")
+        http_client = httpx.AsyncClient()  # 不设置 proxies 参数
+        client = openai.AsyncOpenAI(api_key=key, base_url=url, http_client=http_client)
+        return client, model
     except Exception as e:
         raise ValueError(f"客户端初始化失败: {str(e)}")
+
 
 async def generate_summary(conv_id):
     try:
         history = build_openai_messages(conv_id)
         history.append({"role": "user", "content": f"请你总结以上对话，输出话题名称，不要超过20字"})
         api = get_api_config(default_api)
-        client,model = build_client(api[0], api[1], api[2])
+        client, model = build_client(api[0], api[1], api[2])
         response = await client.chat.completions.create(
-            model= model,
+            model=model,
             messages=history,
             max_tokens=8000,
             stream=False
@@ -36,28 +39,30 @@ async def generate_summary(conv_id):
     except Exception as e:
         raise ValueError(f"生成总结失败: {str(e)}")
 
+
 async def get_response_no_stream(client: openai.AsyncOpenAI, model, current_input, conv_id=0, type='once'):
-    #print(f"model:{model}\r\ninput:{current_input}\r\nconv_id:{conv_id}\r\ntype:{type}")
+    # print(f"model:{model}\r\ninput:{current_input}\r\nconv_id:{conv_id}\r\ntype:{type}")
     try:
-        messages = await get_full_msg(conv_id, type, current_input)
-        #print(f"完整prompts:{str(messages)}")
+        messages = await get_full_msg(conv_id, type, current_input,True)
+        # print(f"完整prompts:{str(messages)}")
         response = await client.chat.completions.create(
             model=model,
             messages=messages,
-            max_tokens=8000,
+            max_tokens=6000,
             stream=False
         )
         return response.choices[0].message.content
     except Exception as e:
         return str(RuntimeError(f"API调用失败: {str(e)}"))
 
+
 async def get_response_stream(client: openai.AsyncOpenAI, model, current_input, conv_id=0, type='once'):
     try:
-        messages = await get_full_msg(conv_id, type, current_input)
+        messages = await get_full_msg(conv_id, type, current_input,True)
         response = await client.chat.completions.create(
             model=model,
             messages=messages,
-            max_tokens=8000,
+            max_tokens=6000,
             stream=True
         )
         async for chunk in response:
@@ -66,15 +71,17 @@ async def get_response_stream(client: openai.AsyncOpenAI, model, current_input, 
     except Exception as e:
         raise RuntimeError(f"API调用失败: {str(e)}")
 
+
 def get_api_config(api_name: str):
-    _, api_list = file.load_config()
+    api_list = file.load_config()['api']
     for api in api_list:
         if api['name'] == api_name:
             return api['key'], api['url'], api['model']
     raise ValueError(f"未找到名为 '{api_name}' 的API配置")
 
+
 def build_openai_messages(conv_id, type='private'):
-    dialog_history = db.dialog_content_load(conv_id,type)
+    dialog_history = db.dialog_content_load(conv_id, type)
     if not dialog_history:
         return []
     messages = []
@@ -87,6 +94,7 @@ def build_openai_messages(conv_id, type='private'):
             })
     return messages
 
+
 def calculate_token_count(text: str) -> int:
     try:
         encoder = tiktoken.get_encoding("cl100k_base")
@@ -95,14 +103,15 @@ def calculate_token_count(text: str) -> int:
         print(f"错误: 计算token时发生错误 - {e}. 输出为字符串长度。")
         return len(text)
 
-async def get_full_msg(conv_id, type, current_input):
-    char = None # Initialize char to None
+
+async def get_full_msg(conv_id, type, current_input, split=False):
+    char = None  # Initialize char to None
     if type == 'private':
-        char,_ = db.conversation_private_get(conv_id)
-        #print(f"回复角色:{char}")
+        char, _ = db.conversation_private_get(conv_id)
+        # print(f"回复角色:{char}")
     elif type == 'group':
-        char,_ = db.conversation_group_config_get(conv_id)
-        #print(f"回复角色:{char}")
+        char, _ = db.conversation_group_config_get(conv_id)
+        # print(f"回复角色:{char}")
 
     if char and char == default_char:
         insert_coin = market.check_coin(current_input)
@@ -116,9 +125,16 @@ async def get_full_msg(conv_id, type, current_input):
         messages = []
     else:
         messages = await asyncio.to_thread(build_openai_messages, conv_id, type)
-    messages.append({"role": "user", "content": current_input})
+    if not split:
+        messages.append({"role": "user", "content": current_input})
+    else:
+        prompts = prompt.split_prompts(current_input)
+        messages.insert(0, {"role": "system", "content": prompts['system']})
+        messages.append({"role": "user", "content": prompts['user']})
+    #print(f"最终构建结果：\r\n{messages}")
     return messages
 
-async def get_current_input_token(conv_id, type, current_input):
-    full_msg_content = await get_full_msg(conv_id, type, current_input)
+
+async def get_current_input_token(conv_id, type, current_input,split = False):
+    full_msg_content = await get_full_msg(conv_id, type, current_input,split)
     return calculate_token_count(str(full_msg_content))

@@ -26,9 +26,12 @@ def load_config(config_file=config_path):
         API_LIST = config.get("api_list", [])
         if not API_LIST:
             raise ValueError("配置文件中未找到 api_list")
+        ADMIN_LIST = config.get("ADMIN", [])
+        if not API_LIST:
+            raise ValueError("配置文件中未找到 ADMIN")
 
         # print("配置文件加载成功")
-        return TG_TOKEN, API_LIST
+        return {'token':TG_TOKEN,'api':API_LIST,'admin':ADMIN_LIST}
 
     except Exception as e:
         print(f"加载配置文件时出错: {str(e)}")

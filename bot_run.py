@@ -21,8 +21,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 semaphore = Semaphore(5)
-BOT_TOKEN, _ = file_utils.load_config()
-
+BOT_TOKEN= file_utils.load_config()['token']
+ADMIN = file_utils.load_config()['admin']
 
 @handle_command_errors
 @check_message_and_user

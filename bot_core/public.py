@@ -40,7 +40,7 @@ def print_api_list(tier: int) -> Union[str, InlineKeyboardMarkup]:
         Union[str, InlineKeyboardMarkup]: 如果没有符合条件的API返回提示，否则返回键盘标记。
     """
     try:
-        _, api_list = file.load_config()
+        api_list = file.load_config()['api']
         if not api_list:
             return "没有可用的api。"
 
