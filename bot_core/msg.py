@@ -66,7 +66,7 @@ async def msg_private_handle(update: Update, context: ContextTypes.DEFAULT_TYPE)
                     logger.warning(f"Markdown 解析错误: {str(e)}, 禁用 Markdown 重试")
                     await update.message.reply_text(result, parse_mode=None)
         else:
-            await update.message.reply_text("您的额度已用尽")
+            await update.message.reply_text("您的额度已用尽，请联系 @xi_cuicui")
 
     except Exception as e:
         logger.error(f"处理私聊消息时出错: {str(e)}", exc_info=True)
