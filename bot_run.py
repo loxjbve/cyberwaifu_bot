@@ -184,7 +184,12 @@ def main() -> None:
         app.add_error_handler(error_handler)
         logger.info("机器人已启动...")
         # 启动机器人
-        app.run_polling(allowed_updates=Update.ALL_TYPES)
+        try:
+            app.run_polling(allowed_updates=Update.ALL_TYPES)
+        finally:
+            # 确保即使发生异常也会关闭连接
+            from utils.db_utils import close_all_connections
+            close_all_connections()
     except Exception as e:
         logger.error(f"机器人启动失败: {str(e)}", exc_info=True)
         raise BotRunError(f"机器人启动失败: {str(e)}")

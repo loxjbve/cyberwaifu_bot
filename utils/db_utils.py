@@ -1,6 +1,7 @@
 import datetime
 import json
 import sqlite3
+import threading
 from sqlite3 import Error
 from typing import Any, List, Optional, Tuple
 
@@ -12,47 +13,106 @@ DEFAULT_FREQUENCY = 200
 DEFAULT_BALANCE = 1.5
 
 
+class DatabaseConnectionPool:
+    """数据库连接池，使用单例模式实现"""
+    _instance = None
+    _lock = threading.Lock()
+    
+    def __new__(cls, db_file: str = "./data/data.db", max_connections: int = 5):
+        with cls._lock:
+            if cls._instance is None:
+                cls._instance = super(DatabaseConnectionPool, cls).__new__(cls)
+                cls._instance.db_file = db_file
+                cls._instance.max_connections = max_connections
+                cls._instance.connections = []
+                cls._instance.connection_locks = []
+                cls._instance.initialize_pool()
+        return cls._instance
+    
+    def initialize_pool(self):
+        """初始化连接池"""
+        for _ in range(self.max_connections):
+            try:
+                conn = sqlite3.connect(self.db_file, check_same_thread=False)
+                self.connections.append(conn)
+                self.connection_locks.append(threading.Lock())
+            except Error as e:
+                print(f"初始化连接池时发生错误: {e}")
+    
+    def get_connection(self) -> Optional[Tuple[sqlite3.Connection, int]]:
+        """获取一个可用的数据库连接"""
+        for i, lock in enumerate(self.connection_locks):
+            if lock.acquire(blocking=False):
+                return self.connections[i], i
+        # 如果所有连接都在使用中，创建一个临时连接
+        try:
+            temp_conn = sqlite3.connect(self.db_file, check_same_thread=False)
+            return temp_conn, -1  # -1 表示这是一个临时连接
+        except Error as e:
+            print(f"创建临时连接时发生错误: {e}")
+            return None, -1
+    
+    def release_connection(self, index: int):
+        """释放连接"""
+        if 0 <= index < len(self.connection_locks):
+            self.connection_locks[index].release()
+    
+    def close_all(self):
+        """关闭所有连接"""
+        for conn in self.connections:
+            try:
+                conn.close()
+            except Error:
+                pass
+        self.connections = []
+        self.connection_locks = []
+
+
+# 创建全局连接池实例
+db_pool = DatabaseConnectionPool()
+
+
 def create_connection(db_file: str = "./data/data.db") -> Optional[sqlite3.Connection]:
-    """创建数据库连接"""
+    """创建数据库连接（保留此函数以兼容旧代码）"""
+    conn, _ = db_pool.get_connection()
+    return conn
+
+
+def execute_db_operation(operation_type: str, command: str, params: Tuple = ()):
+    """执行数据库操作的通用函数"""
+    conn, conn_index = db_pool.get_connection()
+    if not conn:
+        return [] if operation_type == "query" else 0
+    
     try:
-        conn = sqlite3.connect(db_file)
-        return conn
-    except Error as e:
-        print(f"连接数据库时发生错误: {e}")
-        return None
+        cursor = conn.cursor()
+        cursor.execute(command, params)
+        
+        if operation_type == "update":
+            conn.commit()
+            result = cursor.rowcount
+        else:  # query
+            result = cursor.fetchall()
+        
+        return result
+    except sqlite3.Error as e:
+        print(f"数据库{operation_type}错误: {e}")
+        return [] if operation_type == "query" else 0
+    finally:
+        if conn_index >= 0:  # 如果是连接池中的连接，释放它
+            db_pool.release_connection(conn_index)
+        else:  # 如果是临时连接，关闭它
+            conn.close()
 
 
 def revise_db(command: str, params: Tuple = ()) -> int:
     """执行数据库更新操作，返回受影响的行数"""
-    conn = create_connection()
-    if not conn:
-        return 0
-    try:
-        cursor = conn.cursor()
-        cursor.execute(command, params)
-        conn.commit()
-        return cursor.rowcount
-    except sqlite3.Error as e:
-        print(f"数据库更新错误: {e}")
-        return 0
-    finally:
-        conn.close()
+    return execute_db_operation("update", command, params)
 
 
 def query_db(command: str, params: Tuple = ()) -> List[Any]:
     """执行数据库查询操作，返回查询结果"""
-    conn = create_connection()
-    if not conn:
-        return []
-    try:
-        cursor = conn.cursor()
-        cursor.execute(command, params)
-        return cursor.fetchall()
-    except sqlite3.Error as e:
-        print(f"数据库查询错误: {e}")
-        return []
-    finally:
-        conn.close()
+    return execute_db_operation("query", command, params)
 
 
 def user_config_get(userid: int) -> Optional[Tuple]:
@@ -441,3 +501,9 @@ def group_rate_get(group_id) -> float:
     command = f"SELECT rate from groups where group_id = ?"
     result = query_db(command, (group_id,))
     return result[0][0] if result else 0.05
+
+
+# 应用退出时关闭所有数据库连接
+def close_all_connections():
+    """关闭所有数据库连接，应在应用退出时调用"""
+    db_pool.close_all()
