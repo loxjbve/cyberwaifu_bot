@@ -422,6 +422,11 @@ def group_dialog_update(msg_id: int, field: str, value: Any, group_id: int) -> b
     result = revise_db(command, (value, msg_id, group_id))
     return result > 0
 
+def group_dialog_get(group_id, num) -> list:
+    """获取指定 group_id 的最新 num 条群聊消息，按 msg_id 降序排序"""
+    command = "SELECT msg_text, msg_user_name, processed_response FROM group_dialogs WHERE group_id = ? ORDER BY msg_id DESC LIMIT ?"
+    result = query_db(command, (group_id, num))
+    return result if result else []
 
 def group_info_update(group_id: int, field: str, value: Any) -> bool:
     """更新群组信息"""

@@ -64,7 +64,7 @@
       {
         "name": "COT_format",
         "display": "输出COT",
-        "content": "思考的内容，包含每一点，必须用<thinking>标签标注出来，之后再用<content>标注正文内容"
+        "content": "思考的内容，包含每一点，必须用<thinking></content>标签标注出来，之后再用<content></content>标注正文内容"
       },
       {
         "name": "Disable_COT",

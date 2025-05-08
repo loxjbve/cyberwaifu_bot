@@ -30,9 +30,6 @@ DEFAULT_PRESET = 'Default_meeting'
 DEFAULT_API = 'gemini-2'
 
 
-
-
-
 def update_info_get(update: Update) -> dict:
     try:
         if update.message:
@@ -50,7 +47,10 @@ def update_info_get(update: Update) -> dict:
                 if config:
                     config_dict = {'api': config[0], 'char': config[1], 'preset': config[2]}
                     conv_id = {'conv_id': db.conversation_group_get(group_info['group_id'], user_info['user_id'])}
-                    return {**user_info, **conv_id, **config_dict, **info}
+                    if db.group_check_update(group_info['group_id']):
+                        return {'need_update': True, **user_info, **conv_id, **config_dict, **info}
+                    else:
+                        return {'need_update': False, **user_info, **conv_id, **config_dict, **info}
                 else:
                     return {'need_update': True, **info}
         elif update.callback_query:
@@ -374,6 +374,7 @@ def user_config_get(user_id) -> dict:
         logger.error(f"获取用户配置失败, user_id: {user_id}, 错误: {str(e)}")
         raise DatabaseError(f"获取用户配置失败: {str(e)}")
 
+
 def is_message_expired(update: Update) -> bool:
     """
     检查消息是否过期（超过30秒）。
@@ -390,13 +391,15 @@ def is_message_expired(update: Update) -> bool:
     time_diff = current_time - update.message.date
     logger.debug(f"检查消息是否过期，时间差: {time_diff}")
     return time_diff > timedelta(seconds=30)
+
+
 def _extract_user_info(user) -> dict:
     return {
         'user_id': user.id,
         'first_name': user.first_name or '',
         'last_name': user.last_name or '',
         'username': user.username or '',
-        'user_name': f"{user.first_name}{user.last_name}" or ''
+        'user_name': str(user.first_name)+str(user.last_name) or ''
     }
 
 

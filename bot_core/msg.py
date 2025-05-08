@@ -10,6 +10,7 @@ from bot_core import public
 from bot_core import conversation as conv
 import telegram
 from bot_core.exceptions import BotError, DatabaseError, LLMError
+
 # 设置日志配置
 logging.basicConfig(
     level=logging.INFO,
@@ -25,9 +26,6 @@ logger = logging.getLogger(__name__)
 httpx_logger = logging.getLogger("httpx")
 httpx_logger.setLevel(logging.WARNING)
 httpx_logger.propagate = True
-
-
-
 
 
 async def msg_group_handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -117,11 +115,24 @@ async def group_once_handle(update, context, trigger_type: str) -> Optional[str]
         key, url, model_name = llm.get_api_config(api)
         client, model = llm.build_client(key, url, model_name)
         prompts_str = prompt.build_prompts(char, info['message_text'], preset)
+        group_dialog = db.group_dialog_get(info['group_id'], 10)
+        insert_txt = f"<现在是群聊模式，你需要先看看群友在聊什么，再输出内容：\r\n"
+        for dialog in group_dialog:
+            if dialog[1]:
+                insert_txt += f"USER:{dialog[1]}:\r\n{dialog[0]}\r\n"
+        insert_txt += ">"
+        # print(prompts_str)
+        prompts_str = prompt.insert_text(prompts_str, insert_txt, '以下是用户最新输入:\r\n', 'before')
+        prompts_str = prompt.insert_text(prompts_str, f"你需要回复的用户的姓名或网名是‘{info['user_name']}，以下是用户的输入’\r\n",
+                                         '以下是用户最新输入:\r\n', 'before')
+        # print(prompts_str)
+
         # 发送占位符消息
         placeholder_message = await update.message.reply_text("思考中...")
         # 后台异步生成并编辑消息
         asyncio.create_task(
-            _generate_message_once_background(client, model, prompts_str, info['group_name'], info['user_name'], info['message_id'], info['group_id'],
+            _generate_message_once_background(client, model, prompts_str, info['group_name'], info['user_name'],
+                                              info['message_id'], info['group_id'],
                                               trigger_type, placeholder_message))
         return None
     except Exception as e:
@@ -147,8 +158,15 @@ async def group_chat_handle(update) -> Optional[str]:
         key, url, model_name = llm.get_api_config(api)
         client, model = llm.build_client(key, url, model_name)
         prompts = prompt.insert_text(prompt.build_prompts(char, info['message_text'], preset),
-                                     f"用户的姓名或网名是‘{info['user_name']}’\r\n",
+                                     f"你需要回复的用户的姓名或网名是‘{info['user_name']}，以下是用户的输入’\r\n",
                                      '以下是用户最新输入:\r\n', 'before')
+        group_dialog = db.group_dialog_get(info['group_id'], 10)
+        insert_txt = f"<现在是群聊模式，你需要先看看群友在聊什么，再输出内容：\r\n"
+        for dialog in group_dialog:
+            if dialog[1]:
+                insert_txt += f"{dialog[1]}:\r\n{dialog[0]}\r\n"
+        insert_txt += ">"
+        prompts = prompt.insert_text(prompts,insert_txt,'以下是用户最新输入:\r\n','before')
         # 发送占位符消息
         placeholder_message = await update.message.reply_text("思考中...")
         # 后台异步生成并编辑消息

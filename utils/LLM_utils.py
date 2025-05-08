@@ -132,7 +132,7 @@ async def get_full_msg(conv_id, chat_type, current_input, split=False) -> list:
         char, _ = db.conversation_group_config_get(conv_id)
 
     if char and char == default_char:
-        insert_coin = market.check_coin(current_input)
+        insert_coin = market.check_coin(current_input.split('以下是用户最新输入:\r\n')[1])
         if insert_coin:
             df = await asyncio.to_thread(market.get_candlestick_data, insert_coin)
             if df is not None:

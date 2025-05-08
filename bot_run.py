@@ -42,6 +42,7 @@ async def group_msg_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             return
         else:
             await msg.msg_group_handle(update, context)
+            return
     except Exception as e:
         logger.error(f"处理群聊消息时出错: {str(e)}", exc_info=True)
         # 不再向用户重复发送错误消息，避免多次回复

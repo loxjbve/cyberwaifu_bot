@@ -11,7 +11,6 @@ import os
 import json
 import re
 
-
 # 设置日志配置
 logging.basicConfig(
     level=logging.INFO,
@@ -327,7 +326,10 @@ async def remake(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if public.is_message_expired(update):
         logger.warning(f"忽略过期的 /remake 命令，消息ID: {update.message.message_id}")
         return
-    info = public.update_info_get(update, context)
+    info = public.update_info_get(update)
+    if info['need_update']:
+        public.group_info_update_or_create(update, context)
+    info = public.update_info_get(update)
     if await conv.group_delete(info):
         logger.info(f"处理 /remake 命令，用户ID: {update.effective_user.id}")
         await update.message.reply_text("您已重开对话！")
@@ -348,7 +350,10 @@ async def switch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         logger.warning(f"非管理员尝试使用 /switch 命令，用户ID: {update.effective_user.id}")
         await update.message.reply_text("该指令仅管理员可用")
         return
-    info = public.update_info_get(update, context)
+    info = public.update_info_get(update)
+    if info['need_update']:
+        await public.group_info_update_or_create(update, context)
+    info = public.update_info_get(update)
     markup = public.print_char_list('load', 'group', info['group_id'])
     if markup == "没有可操作的角色。":
         await update.message.reply_text(markup)
@@ -380,6 +385,7 @@ async def addf(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 await update.message.reply_text(f"已为所有用户添加{value}条额度")
         else:
             if db.user_info_update(target_user_id, 'remain_frequency', value, True):
-                await update.message.reply_text(f"已为{public.user_info_get(target_user_id)['user_name']}添加{value}条额度")
+                await update.message.reply_text(
+                    f"已为{public.user_info_get(target_user_id)['user_name']}添加{value}条额度")
     else:
         await update.message.reply_text("无权限操作，仅管理员可用。")
