@@ -52,7 +52,7 @@ async def private_msg_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     user_id = public.update_info_get(update)['user_id']
     newchar_state = context.bot_data.get('newchar_state', {}).get(user_id)
     if newchar_state:
-        await msg.newchar_handle(update, context, user_id)  # 非角色描述输入状态，交由其他handler处理
+        await msg.newchar_handle(update, newchar_state, user_id)  # 非角色描述输入状态，交由其他handler处理
         return
     else:
         await msg.msg_private_handle(update, context)
