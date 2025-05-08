@@ -6,6 +6,8 @@ from utils import file_utils as file, db_utils as db
 import datetime
 import random
 from datetime import timedelta
+from bot_core.exceptions import BotError, DatabaseError
+
 ADMIN = file.load_config()['admin']
 # 设置日志配置
 logging.basicConfig(
@@ -27,14 +29,7 @@ DEFAULT_PRESET = 'Default_meeting'
 DEFAULT_API = 'gemini-2'
 
 
-class BotError(Exception):
-    """自定义Bot异常基类"""
-    pass
 
-
-class DatabaseError(BotError):
-    """数据库操作相关异常"""
-    pass
 
 
 def update_info_get(update: Update) -> dict:

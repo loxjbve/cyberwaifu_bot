@@ -4,6 +4,7 @@ import re
 import logging
 from telegram import Update
 from utils import LLM_utils as llm, db_utils as db
+from bot_core.exceptions import BotError, DatabaseError, LLMError
 
 # 设置日志配置
 logging.basicConfig(
@@ -20,22 +21,6 @@ logger = logging.getLogger(__name__)
 httpx_logger = logging.getLogger("httpx")
 httpx_logger.setLevel(logging.WARNING)
 httpx_logger.propagate = True
-
-
-# 自定义异常类
-class BotError(Exception):
-    """自定义Bot异常基类"""
-    pass
-
-
-class DatabaseError(BotError):
-    """数据库操作相关异常"""
-    pass
-
-
-class LLMError(BotError):
-    """LLM服务调用相关异常"""
-    pass
 
 
 def private_new(user_id, config) -> str:

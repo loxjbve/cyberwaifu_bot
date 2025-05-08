@@ -3,7 +3,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from utils import db_utils as db
 from bot_core import public
-
+from bot_core.exceptions import BotError, DatabaseError
 # 设置日志配置
 logging.basicConfig(
     level=logging.INFO,
@@ -22,15 +22,7 @@ httpx_logger.propagate = True
 default_char = 'cuicuishark_public'
 
 
-# 自定义异常类
-class BotError(Exception):
-    """自定义Bot异常基类"""
-    pass
 
-
-class DatabaseError(BotError):
-    """数据库操作相关异常"""
-    pass
 
 
 class CallbackHandler:

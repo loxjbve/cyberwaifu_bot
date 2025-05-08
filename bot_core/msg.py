@@ -9,7 +9,7 @@ from telegram.error import BadRequest, TelegramError
 from bot_core import public
 from bot_core import conversation as conv
 import telegram
-
+from bot_core.exceptions import BotError, DatabaseError, LLMError
 # 设置日志配置
 logging.basicConfig(
     level=logging.INFO,
@@ -27,20 +27,7 @@ httpx_logger.setLevel(logging.WARNING)
 httpx_logger.propagate = True
 
 
-# 自定义异常类
-class BotError(Exception):
-    """自定义Bot异常基类"""
-    pass
 
-
-class DatabaseError(BotError):
-    """数据库操作相关异常"""
-    pass
-
-
-class LLMError(BotError):
-    """LLM服务调用相关异常"""
-    pass
 
 
 async def msg_group_handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
