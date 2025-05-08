@@ -222,8 +222,8 @@ async def group_info_update_or_create(update, context) -> bool:
             else:
                 db.group_info_create(group_id)
                 api, char, preset = DEFAULT_API, DEFAULT_CHAR, DEFAULT_PRESET
-            field_list = ['group_name', 'update_time', 'members_list', 'api', 'char', 'preset']
-            value_list = [group_name, current_time, str(admin_list), api, char, preset]
+            field_list = ['group_name', 'update_time', 'members_list', 'api', 'char', 'preset', 'rate']
+            value_list = [group_name, current_time, str(admin_list), api, char, preset, 0.05]
             for field, value in zip(field_list, value_list):
                 db.group_info_update(group_id, field, value)
             return True
@@ -273,6 +273,7 @@ def group_msg_needs_reply(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     group_name = info['group_name']
     user_name = info['user_name']
     keyword_list = db.group_keyword_get(group_id)
+    rate = db.group_rate_get(group_id)
     try:
         if message.reply_to_message:
             if message.reply_to_message.from_user.id == context.bot.id:
@@ -286,7 +287,7 @@ def group_msg_needs_reply(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                     if keyword_list and any(keyword in message_text for keyword in keyword_list):
                         logger.info(f"触发关键词, group_name: {group_name}, user_name: {user_name}")
                         return 'keyword'
-                    if random.random() < 0.1:
+                    if random.random() < rate:
                         logger.info(f"触发随机回复, group_name: {group_name}, user_name: {user_name}")
                         return 'random'
         if message_text:
@@ -296,7 +297,7 @@ def group_msg_needs_reply(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             if keyword_list and any(keyword in message_text for keyword in keyword_list):
                 logger.info(f"触发关键词, group_name: {group_name}, user_name: {user_name}")
                 return 'keyword'
-            if random.random() < 0.1:
+            if random.random() < rate:
                 logger.info(f"触发随机回复, group_name: {group_name}, user_name: {user_name}")
                 return 'random'
         logger.info(f"未触发任何条件, group_name: {group_name}, user_name: {user_name}")
@@ -399,7 +400,7 @@ def _extract_user_info(user) -> dict:
         'first_name': user.first_name or '',
         'last_name': user.last_name or '',
         'username': user.username or '',
-        'user_name': str(user.first_name)+str(user.last_name) or ''
+        'user_name': str(user.first_name) + str(user.last_name) or ''
     }
 
 

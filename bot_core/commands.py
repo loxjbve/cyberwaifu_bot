@@ -5,7 +5,7 @@ import logging
 from asyncio import Semaphore
 from bot_core import public
 from bot_core import conversation as conv
-from bot_core.decorators import handle_command_errors, check_message_and_user  # Import decorators
+from bot_core.decorators import handle_command_errors, check_message_and_user,group_admin_required  # Import decorators
 from utils import db_utils as db, LLM_utils as llm
 import os
 import json
@@ -336,7 +336,7 @@ async def remake(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 @handle_command_errors
-@check_message_and_user  # Apply user check, admin check remains inside
+@group_admin_required
 async def switch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     处理 /switch 命令，切换群组内角色。
@@ -346,10 +346,6 @@ async def switch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         context (ContextTypes.DEFAULT_TYPE): 上下文对象。
     """
     # Decorator handles basic checks and user update
-    if not public.group_admin_check(update):
-        logger.warning(f"非管理员尝试使用 /switch 命令，用户ID: {update.effective_user.id}")
-        await update.message.reply_text("该指令仅管理员可用")
-        return
     info = public.update_info_get(update)
     if info['need_update']:
         await public.group_info_update_or_create(update, context)
@@ -359,6 +355,35 @@ async def switch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(markup)
     else:
         await update.message.reply_text("请选择一个角色：", reply_markup=markup)
+
+@handle_command_errors
+@group_admin_required
+async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    处理 /rate 命令，设置评分。
+
+    Args:
+        update (Update): Telegram 更新对象。
+        context (ContextTypes.DEFAULT_TYPE): 上下文对象。
+    """
+    # Decorator handles basic checks and user update
+    info = public.update_info_get(update)
+    if info['need_update']:
+        await public.group_info_update_or_create(update, context)
+        info = public.update_info_get(update)
+    
+    # 获取并验证输入参数
+    args = context.args if hasattr(context, 'args') else []
+    if len(args) < 1:
+        await update.message.reply_text("请输入一个0-1的小数")
+        return
+    rate_value = float(args[0])
+    if not 0 <= rate_value <= 1:
+        await update.message.reply_text("请输入一个0-1的小数")
+        return
+    if db.group_info_update(info['group_id'],'rate',rate_value):
+        await update.message.reply_text(f"已设置触发频率: {rate_value}")
+
 
 
 @handle_command_errors
