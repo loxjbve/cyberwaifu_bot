@@ -6,6 +6,7 @@ from utils import file_utils as file, db_utils as db
 import datetime
 import random
 from datetime import timedelta
+import datetime
 from bot_core.exceptions import BotError, DatabaseError
 
 ADMIN = file.load_config()['admin']
@@ -385,7 +386,7 @@ def is_message_expired(update: Update) -> bool:
     """
     if update.message is None or update.message.date is None:
         return False  # 如果没有消息或时间信息，默认不过期
-    current_time = datetime.now(update.message.date.tzinfo)  # 获取当前时间，匹配时区
+    current_time = datetime.datetime.now(update.message.date.tzinfo)  # 获取当前时间，匹配时区
     time_diff = current_time - update.message.date
     logger.debug(f"检查消息是否过期，时间差: {time_diff}")
     return time_diff > timedelta(seconds=30)

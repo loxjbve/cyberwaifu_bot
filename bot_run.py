@@ -4,7 +4,7 @@ import telegram
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 import logging
 from asyncio import Semaphore
-from bot_core import public,  msg, public, callback, keyword as kw, commands as cmd, decorators
+from bot_core import public, msg, public, callback, keyword as kw, commands as cmd, decorators
 from bot_core.exceptions import BotRunError  # Import from new exceptions file
 
 ADMIN = file_utils.load_config()['admin']
@@ -41,7 +41,7 @@ async def group_msg_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             await kw.handle_keyword_add_reply(update, context)
             return
         else:
-            await msg.msg_group_handle(update,context)
+            await msg.msg_group_handle(update, context)
     except Exception as e:
         logger.error(f"处理群聊消息时出错: {str(e)}", exc_info=True)
         # 不再向用户重复发送错误消息，避免多次回复
@@ -154,8 +154,6 @@ def main() -> None:
         app.add_handler(
             MessageHandler((filters.TEXT | filters.Document.ALL) & ~filters.COMMAND & filters.ChatType.PRIVATE,
                            private_msg_handler), group=0)
-        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE, msg.msg_private_handle))
-
         app.add_handler(
             CommandHandler("cremake", cmd.remake, filters=filters.ChatType.GROUP | filters.ChatType.SUPERGROUP))
         app.add_handler(
