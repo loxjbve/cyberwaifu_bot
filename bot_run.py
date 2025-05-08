@@ -126,6 +126,7 @@ def main() -> None:
                     BotCommand("cremake", "重开对话"),
                     BotCommand("kw", "设置bot触发关键词"),
                     BotCommand("switch", "切换群组内的角色"),
+                    BotCommand("rate", "设置触发频率"),
                 ]
                 from telegram import BotCommandScopeAllGroupChats
                 await app.bot.set_my_commands(group_commands, scope=BotCommandScopeAllGroupChats())
@@ -161,6 +162,8 @@ def main() -> None:
             CommandHandler("switch", cmd.switch, filters=filters.ChatType.GROUP | filters.ChatType.SUPERGROUP))
         app.add_handler(
             CommandHandler("kw", kw.handle_keyword_list, filters=filters.ChatType.GROUP | filters.ChatType.SUPERGROUP))
+        app.add_handler(
+            CommandHandler("rate", cmd.rate, filters=filters.ChatType.GROUP | filters.ChatType.SUPERGROUP))
         app.add_handler(CallbackQueryHandler(kw.handle_keyword_add, pattern=r"^group_kw_add_"))
         app.add_handler(CallbackQueryHandler(kw.handle_keyword_delete, pattern=r"^group_kw_del_"))
         app.add_handler(CallbackQueryHandler(kw.handle_keyword_select, pattern=r"^group_kw_select_"))
