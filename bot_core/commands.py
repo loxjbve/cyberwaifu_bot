@@ -97,6 +97,20 @@ async def new(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     result = conv.private_new(info['user_id'], info)
     await update.message.reply_text(f"{result}", parse_mode='MarkDown')
 
+    # 添加选择预设的逻辑
+    preset_markup = public.print_preset_list()
+    if preset_markup == "没有可用的预设。":
+        await update.message.reply_text(preset_markup)
+    else:
+        await update.message.reply_text("请为新对话选择一个预设：", reply_markup=preset_markup)
+
+    # 添加选择角色的逻辑
+    char_markup = public.print_char_list('load', 'private', info['user_id'])
+    if char_markup == "没有可操作的角色。":
+        await update.message.reply_text(char_markup)
+    else:
+        await update.message.reply_text("请为新对话选择一个角色：", reply_markup=char_markup)
+
 
 @handle_command_errors
 @check_message_and_user
@@ -140,6 +154,7 @@ async def char(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     # Decorator handles checks and basic logging
     info = public.update_info_get(update)
+    conv.private_new(info['user_id'], info)
     markup = public.print_char_list('load', 'private', info['user_id'])
     if markup == "没有可操作的角色。":
         await update.message.reply_text(markup)

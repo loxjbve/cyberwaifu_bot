@@ -53,6 +53,30 @@ def list_all_characters(char_dir: str = characters_path) -> list[str]:
     return result
 
 
+def load_char(char_file_name: str, char_dir: str = characters_path):
+    """
+    加载指定的角色文件。
+    :param char_file_name: 角色文件名 (例如 'my_character.json')
+    :param char_dir: 角色文件所在的目录
+    :return: 角色文件的JSON内容，如果文件不存在或解析失败则返回None
+    """
+    file_path = os.path.join(char_dir, char_file_name)
+    try:
+        if not os.path.exists(file_path):
+            print(f"错误: 角色文件 {file_path} 不存在。")
+            return None
+        
+        with open(file_path, 'r', encoding='utf-8') as f:
+            char_data = json.load(f)
+            return char_data
+    except json.JSONDecodeError as e:
+        print(f"错误: 解析角色文件 {file_path} 失败 - {str(e)}")
+        return None
+    except Exception as e:
+        print(f"加载角色文件 {file_path} 时发生未知错误: {str(e)}")
+        return None
+
+
 def load_prompts(prompt_file: str = prompt_path):
     """
     加载预设文件

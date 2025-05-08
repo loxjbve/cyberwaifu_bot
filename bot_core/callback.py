@@ -108,8 +108,34 @@ async def _handle_set_character(update: Update, character: str) -> None:
     """
     try:
         info = public.update_info_get(update)
-        if db.user_config_arg_update(info['user_id'],'char',character):
-            await update.callback_query.message.edit_text(f"角色切换成功！当前角色: {character.split('_')[0]}。")
+        if db.user_config_arg_update(info['user_id'], 'char', character):
+            await update.callback_query.message.edit_text(f"角色切换成功！会话已重开！当前角色: {character.split('_')[0]}。")
+            # 加载角色文件并发送问候语
+            from utils import file_utils # 确保导入
+            # 构建角色文件名，通常角色参数可能包含 user_id 后缀，需要正确处理
+            # 假设 character 参数的格式是 'charname_userid' 或 'charname'
+            char_file_name_parts = character.split('_')
+            actual_char_name = char_file_name_parts[0] # 取角色基本名
+            # 尝试几种常见的文件名格式
+            possible_filenames = [
+                f"{character}.json", # 完整名.json (e.g., charname_123.json)
+                f"{actual_char_name}.json" # 基本名.json (e.g., charname.json)
+            ]
+            char_data = None
+            for fname in possible_filenames:
+                char_data = file_utils.load_char(fname)
+                if char_data:
+                    break
+            
+            if char_data and 'meeting' in char_data:
+                meeting_message = char_data['meeting']
+                # 使用 query.message.reply_text 发送新消息，而不是 edit_text 修改回调按钮下的消息
+                await update.callback_query.message.reply_text(meeting_message)
+                info = public.update_info_get(update)
+                db.dialog_content_add(info['conv_id'], 'assistant', 1, meeting_message,
+                                      '', 0, 'private')
+            elif char_data is None:
+                logger.warning(f"未能加载角色 {character} 的数据文件。")
     except Exception as e:
         logger.error(f"设置角色失败, 错误: {str(e)}")
 

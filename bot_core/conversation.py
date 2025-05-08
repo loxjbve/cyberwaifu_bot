@@ -86,7 +86,8 @@ async def group_delete(group_info) -> str:
 async def private_save(config) -> str:
     try:
 
-        if db.conversation_private_update(config['conv_id'],config['char'],config['preset']) and db.conversation_private_save(config['conv_id']):
+        if db.conversation_private_update(config['conv_id'], config['char'],
+                                          config['preset']) and db.conversation_private_save(config['conv_id']):
             summary = await llm.generate_summary(config['conv_id'])
             print(f'总结:{summary}')
             if db.conversation_private_summary_add(config['conv_id'], summary):
@@ -96,8 +97,6 @@ async def private_save(config) -> str:
     except Exception as e:
         logger.error(f"保存对话失败, conv_id: {config['conv_id']}, 错误: {str(e)}")
         raise BotError(f"保存对话失败: {str(e)}")
-
-
 
 
 async def dialog_add(user_id: int, conv_id: int, prompts: str, input_text: str, full_response: str,
@@ -117,22 +116,24 @@ async def dialog_add(user_id: int, conv_id: int, prompts: str, input_text: str, 
         response_token = llm.calculate_token_count(full_response)
         # Await the async get_current_input_token
         input_token = await llm.get_current_input_token(conv_id, 'private', prompts)
-        logger.info(f"流式生成私聊回复完成, user_id: {user_id}, input_token:{input_token}, output_token: {response_token}")
+        logger.info(
+            f"流式生成私聊回复完成, user_id: {user_id}, input_token:{input_token}, output_token: {response_token}")
         # Run database operations in a separate thread
         current_turn_order = await asyncio.to_thread(db.dialog_turn_get, conv_id, 'private')
-        await asyncio.to_thread(db.dialog_content_add, conv_id, 'user', current_turn_order + 1, input_text,
-                                re.sub(r'<[^>]*>', '', input_text), msg_id, 'private')
-        await asyncio.to_thread(db.dialog_content_add, conv_id, 'assistant', current_turn_order + 2, full_response,
-                                cleared_response, msg_id, 'private')
-        await asyncio.to_thread(db.user_info_update, user_id, 'input_tokens', input_token, True)
-        await asyncio.to_thread(db.user_info_update, user_id, 'output_tokens', response_token, True)
-        await asyncio.to_thread(db.user_info_update, user_id, 'dialog_turns', 2, True)
+        db.dialog_content_add(conv_id, 'user', current_turn_order + 1, input_text,
+                              re.sub(r'<[^>]*>', '', input_text), msg_id, 'private')
+        db.dialog_content_add(conv_id, 'assistant', current_turn_order + 2, full_response,
+                              cleared_response, msg_id, 'private')
+        db.user_info_update(user_id, 'input_tokens', input_token, True)
+        db.user_info_update(user_id, 'output_tokens', response_token, True)
+        db.user_info_update(user_id, 'dialog_turns', 2, True)
     except Exception as e:
         # Log database update errors specifically
         logger.error(f"数据库更新错误: {e}", exc_info=True)
         # Consider raising or handling the error further if needed
 
-async def group_update(info,response,cleared_response,placeholder_message):
+
+async def group_update(info, response, cleared_response, placeholder_message):
     conv_id = info['conv_id']
     input_text = info['message_text']
     message_id = info['message_id']

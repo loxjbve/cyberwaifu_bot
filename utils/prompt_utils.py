@@ -231,11 +231,28 @@ def create_prompts_dict(data: Dict) -> Dict:
 
 
 def insert_character_info(prompt_text: str, character: str) -> str:
-    """插入角色信息到指定位置。"""
-    char_str = load_character(character)
-    if not char_str:
+    """插入角色信息到指定位置。如果角色数据包含 'meeting' 字段，则在插入前移除它。"""
+    char_str_or_error = load_character(character)
+
+    if not char_str_or_error or char_str_or_error.startswith("Error:"):
+        # 如果加载失败或返回的是错误信息，则直接返回错误提示
         return "<|System| 如果看见此字段，请提示用户角色加载错误！如果看见此字段，请提示用户角色加载错误！如果看见此字段，请提示用户角色加载错误！>"
-    return insert_text(prompt_text, char_str, '</character>', 'before')
+
+    try:
+        # 尝试解析JSON
+        char_data = json.loads(char_str_or_error)
+        # 如果 'meeting' 存在，则移除它
+        if isinstance(char_data, dict) and 'meeting' in char_data:
+            del char_data['meeting']
+        # 将处理后的数据转回JSON字符串
+        processed_char_str = json.dumps(char_data, ensure_ascii=False, indent=4)
+    except json.JSONDecodeError:
+        # 如果不是有效的JSON（虽然load_character应该返回JSON字符串或错误），则按原样使用
+        # 这种情况理论上不应该发生，因为 load_character 应该返回格式化的JSON字符串或错误信息
+        print(f"警告: load_character 返回的内容无法解析为JSON: {char_str_or_error[:100]}...") # 打印部分内容以供调试
+        processed_char_str = char_str_or_error
+    
+    return insert_text(prompt_text, processed_char_str, '</character>', 'before')
 
 
 # ===== 用户输入处理函数 =====
