@@ -133,7 +133,7 @@ def user_info_create(userid: int, first_name: str, last_name: str, user_name: st
     create_at = str(datetime.datetime.now())
     command = "INSERT INTO users(uid,first_name,last_name,user_name,create_at,update_at,input_tokens,output_tokens,account_tier,remain_frequency,balance) VALUES (?, ?, ?, ?, ?, ?,?,?,?,?,?)"
     result = revise_db(command, (
-    userid, first_name, last_name, user_name, create_at, create_at, 0, 0, 0, DEFAULT_FREQUENCY, DEFAULT_BALANCE))
+        userid, first_name, last_name, user_name, create_at, create_at, 0, 0, 0, DEFAULT_FREQUENCY, DEFAULT_BALANCE))
     return result > 0
 
 
@@ -365,7 +365,7 @@ def group_config_get(group_id: int) -> Optional[Tuple]:
     """获取群组配置"""
     command = "SELECT api, char, preset FROM groups WHERE group_id = ?"
     result = query_db(command, (group_id,))
-    return result[0] if result else None
+    return result[0] if result else False
 
 
 def group_admin_list_get(group_id: int) -> List[str]:

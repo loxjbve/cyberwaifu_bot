@@ -14,7 +14,7 @@ default_char = 'cuicuishark_public'
 def build_client(key: str, url: str, model: str) -> tuple[openai.AsyncOpenAI, str]:
     """构建 OpenAI 异步客户端并返回客户端和模型名称。"""
     try:
-        print(f"使用{key},{model}获取{url}")
+        #print(f"使用{key},{model}获取{url}")
         http_client = httpx.AsyncClient()  # 不设置 proxies 参数
         client = openai.AsyncOpenAI(api_key=key, base_url=url, http_client=http_client)
         return client, model
@@ -115,16 +115,16 @@ def build_openai_messages(conv_id, output_type='private'):
     return messages
 
 
-def calculate_token_count(text: str) -> int:
+def calculate_token_count(text: str | None) -> int:
     try:
         encoder = tiktoken.get_encoding("cl100k_base")
         return len(encoder.encode(text))
     except Exception as e:
         print(f"错误: 计算token时发生错误 - {e}. 输出为字符串长度。")
-        return len(text)
+        return len(str(text))
 
 
-async def get_full_msg(conv_id, chat_type, current_input, split=False):
+async def get_full_msg(conv_id, chat_type, current_input, split=False) -> list:
     char = None  # Initialize char to None
     if chat_type == 'private':
         char, _ = db.conversation_private_get(conv_id)
@@ -151,7 +151,7 @@ async def get_full_msg(conv_id, chat_type, current_input, split=False):
         messages.insert(0, {"role": "system", "content": prompts['system']})
         messages.append({"role": "user", "content": prompts['user']})
     import logging
-    logging.info(f"最终构建结果：\r\n{messages}")
+    #logging.info(f"最终构建结果：\r\n{messages}")
     return messages
 
 

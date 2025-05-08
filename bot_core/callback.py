@@ -2,7 +2,7 @@ import logging, random
 from telegram import Update
 from telegram.ext import ContextTypes
 from utils import db_utils as db
-from bot_core import group,tg,user,public
+from bot_core import public
 
 # 设置日志配置
 logging.basicConfig(
@@ -89,7 +89,7 @@ async def _handle_del_character(update: Update, character: str) -> None:
         user_id (int): 用户ID。
     """
     import os
-    info = public.update_parser(update)
+    info = public.update_info_get(update)
     db.user_config_arg_update(info['user_id'], 'char',default_char)
     db.conversation_private_arg_update(info['conv_id'],'character',default_char)
     # 处理角色文件重命名逻辑
@@ -115,7 +115,7 @@ async def _handle_set_character(update: Update, character: str) -> None:
         character (str): 角色名。
     """
     try:
-        info = public.update_parser(update)
+        info = public.update_info_get(update)
         if db.user_config_arg_update(info['user_id'],'char',character):
             await update.callback_query.message.edit_text(f"角色切换成功！当前角色: {character.split('_')[0]}。")
     except Exception as e:
@@ -130,7 +130,7 @@ async def _handle_set_api(update: Update, api: str) -> None:
         api (str): API名。
     """
     try:
-        info = public.update_parser(update)
+        info = public.update_info_get(update)
         if db.user_config_arg_update(info['user_id'],'api',api):
             await update.callback_query.message.edit_text(f"api切换成功！当前api: {api}。")
     except Exception as e:
@@ -147,7 +147,7 @@ async def _handle_set_preset(update: Update, preset: str) -> None:
         user_id (int): 用户ID。
     """
     try:
-        info = public.update_parser(update)
+        info = public.update_info_get(update)
         if db.user_config_arg_update(info['user_id'],'preset',preset):
             await update.callback_query.message.edit_text(f"预设切换成功！当前预设: {preset}。")
     except Exception as e:
@@ -164,7 +164,7 @@ async def _handle_set_conversation(update: Update, conv_id: int) -> None:
         user_id (int): 用户ID。
     """
     try:
-        info = public.update_parser(update)
+        info = public.update_info_get(update)
         if db.user_config_arg_update(info['user_id'],'conv_id',conv_id):
             char,preset = db.conversation_private_get(conv_id)
             if db.user_config_arg_update(info['user_id'],'preset',preset) and db.user_config_arg_update(info['user_id'],'char',char):
@@ -196,7 +196,7 @@ async def _handle_group_character(update: Update, context: ContextTypes.DEFAULT_
         char (str): 角色名。
         group_id (int): 群聊ID。
     """
-    if not await group.admin_check(update, context, 'callback'):
+    if not public.group_admin_check(update):
         await update.callback_query.answer("仅管理员可操作", show_alert=True)
         return
     db.group_info_update(group_id, 'char', char)

@@ -2,7 +2,7 @@ import functools
 import logging
 from telegram import Update
 from telegram.ext import ContextTypes
-from bot_core import tg, user,public
+from bot_core import  public
 # from bot_run import BotRunError  # Assuming BotRunError is defined in bot_run.py
 from bot_core.exceptions import BotRunError # Import from new exceptions file
 
@@ -30,20 +30,34 @@ def check_message_and_user(func):
     @functools.wraps(func)
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
         command_name = func.__name__
-        if tg.is_message_expired(update):
-            logger.warning(f"忽略过期的 /{command_name} 命令，消息ID: {update.message.message_id}")
+        if public.is_message_expired(update):
+            logger.warning(f"忽略过期的{command_name}，消息ID: {update.message.message_id}")
             return None  # Stop processing if message is expired
 
-        info = public.update_parser(update)
-        if not user.info_update(info['user_id'], info['username'], info['first_name'], info['last_name']):
+        info = public.update_info_get(update)
+        if not public.user_info_update(info['user_id'], info['username'], info['first_name'], info['last_name']):
             # Log if user update/creation failed, though the current logic proceeds anyway
             logger.warning(f"用户 {info['user_id']} 信息更新/创建失败，但仍继续处理 /{command_name} 命令")
             # Decide if you want to stop processing if user update fails
             # return None
-
         # Log command processing start after checks pass
-        logger.info(f"处理 /{command_name} 命令，用户名称: {info['first_name']}{info['last_name']}")
+        logger.info(f"处理 {command_name} ，用户名称: {info['user_name']}")
 
         # Proceed to the actual command logic
+        return await func(update, context, *args, **kwargs)
+    return wrapper
+
+
+def group_admin_required(func):
+    """装饰器：仅允许群管理员操作，否则自动回复提示。"""
+    @functools.wraps(func)
+    async def wrapper(update, context, *args, **kwargs):
+        if not public.group_admin_check(update):
+            # 判断是消息还是回调
+            if hasattr(update, 'message') and update.message:
+                await update.message.reply_text("仅管理员可操作此命令。")
+            elif hasattr(update, 'callback_query') and update.callback_query:
+                await update.callback_query.answer("仅管理员可操作。", show_alert=True)
+            return
         return await func(update, context, *args, **kwargs)
     return wrapper

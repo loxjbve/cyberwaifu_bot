@@ -3,13 +3,14 @@ from utils import file_utils
 from telegram.ext import ContextTypes
 import logging
 from asyncio import Semaphore
-from bot_core import tg, user, public, group
+from bot_core import public
 from bot_core import conversation as conv
 from bot_core.decorators import handle_command_errors, check_message_and_user  # Import decorators
 from utils import db_utils as db, LLM_utils as llm
 import os
 import json
 import re
+
 # 设置日志配置
 logging.basicConfig(
     level=logging.INFO,
@@ -37,7 +38,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         context (ContextTypes.DEFAULT_TYPE): 上下文对象。
     """
     # Decorator handles checks and basic logging
-    info = public.update_parser(update)
+    info = public.update_info_get(update)
     await update.message.reply_text(
         f"您好，{info['first_name']} {info['last_name']}！这是由 @Xi_cuicui 开发的`CyberWaifu`项目。\r\n已为您创建用户档案。\r\n使用`/char"
         f"`可以切换角色\r\n"
@@ -55,8 +56,8 @@ async def stream(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         context (ContextTypes.DEFAULT_TYPE): 上下文对象。
     """
     # Decorator handles checks and basic logging
-    info = public.update_parser(update)  # Still need user_id
-    if user.stream_switch(info['user_id']):
+    info = public.update_info_get(update)  # Still need user_id
+    if db.user_stream_switch(info['user_id']):
         await update.message.reply_text("切换成功！")
 
 
@@ -71,7 +72,7 @@ async def me(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         context (ContextTypes.DEFAULT_TYPE): 上下文对象。
     """
     # Decorator handles checks and basic logging
-    info = public.update_parser(update)
+    info = public.update_info_get(update)
     result = (
         f"您好，{info['first_name']} {info['last_name']}！\r\n"
         f"您的帐户等级是：`{info['tier']}`；\r\n"
@@ -92,7 +93,7 @@ async def new(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         context (ContextTypes.DEFAULT_TYPE): 上下文对象。
     """
     # Decorator handles checks and basic logging
-    info = public.update_parser(update)
+    info = public.update_info_get(update)
     result = conv.private_new(info['user_id'], info)
     await update.message.reply_text(f"{result}", parse_mode='MarkDown')
 
@@ -107,7 +108,7 @@ async def save(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         update (Update): Telegram 更新对象。
     """
     # Decorator handles checks and basic logging
-    info = public.update_parser(update)
+    info = public.update_info_get(update)
     result = await conv.private_save(info)
     await update.message.reply_text(f"{result}")
 
@@ -122,8 +123,8 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         update (Update): Telegram 更新对象。
     """
     # Decorator handles checks and basic logging
-    config = public.update_parser(update)
-    result = f"当前角色：`{config['char']}`\r\n当前接口：`{config['api']}`\r\n当前预设：`{config['preset']}`\r\n流式传输：`{config['stream']}`\r\n"
+    info = public.update_info_get(update)
+    result = f"当前角色：`{info['char']}`\r\n当前接口：`{info['api']}`\r\n当前预设：`{info['preset']}`\r\n流式传输：`{info['stream']}`\r\n"
     await update.message.reply_text(result, parse_mode='MarkDown')
 
 
@@ -138,7 +139,7 @@ async def char(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         context (ContextTypes.DEFAULT_TYPE): 上下文对象。
     """
     # Decorator handles checks and basic logging
-    info = public.update_parser(update)
+    info = public.update_info_get(update)
     markup = public.print_char_list('load', 'private', info['user_id'])
     if markup == "没有可操作的角色。":
         await update.message.reply_text(markup)
@@ -157,8 +158,8 @@ async def delchar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         context (ContextTypes.DEFAULT_TYPE): 上下文对象。
     """
     # Decorator handles checks and basic logging
-    user_info = public.update_parser(update)
-    markup = public.print_char_list('del', 'private', user_info['user_id'])
+    info = public.update_info_get(update)
+    markup = public.print_char_list('del', 'private', info['user_id'])
     if markup == "没有可操作的角色。":
         await update.message.reply_text(markup)
     else:
@@ -175,7 +176,7 @@ async def newchar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         update (Update): Telegram 更新对象。
         context (ContextTypes.DEFAULT_TYPE): 上下文对象。
     """
-    info = public.update_parser(update)
+    info = public.update_info_get(update)
     # 解析命令参数
     args = context.args if hasattr(context, 'args') else []
     if not args or len(args[0].strip()) == 0:
@@ -193,7 +194,7 @@ async def newchar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 @handle_command_errors
 @check_message_and_user
 async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = public.update_parser(update)['user_id']
+    user_id = public.update_info_get(update)['user_id']
     state = context.bot_data.get('newchar_state', {}).get(user_id)
     if not state:
         await update.message.reply_text("当前无待保存的角色描述。请先使用 /newchar char_name。")
@@ -247,7 +248,7 @@ async def api(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         context (ContextTypes.DEFAULT_TYPE): 上下文对象。
     """
     # Decorator handles checks and basic logging
-    info = public.update_parser(update)
+    info = public.update_info_get(update)
     markup = public.print_api_list(info['tier'])
     if markup == "没有可用的api。" or markup == "没有符合您账户等级的可用api。":
         await update.message.reply_text(markup)
@@ -284,7 +285,7 @@ async def load(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         context (ContextTypes.DEFAULT_TYPE): 上下文对象。
     """
     # Decorator handles checks and basic logging
-    info = public.update_parser(update)  # Still need user_id
+    info = public.update_info_get(update)  # Still need user_id
     markup = public.print_conversations(info['user_id'])
     if markup == "没有可用的对话。":
         await update.message.reply_text(markup)
@@ -303,7 +304,7 @@ async def delete(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         context (ContextTypes.DEFAULT_TYPE): 上下文对象。
     """
     # Decorator handles checks and basic logging
-    info = public.update_parser(update)  # Still need user_id
+    info = public.update_info_get(update)  # Still need user_id
     markup = public.print_conversations(info['user_id'], 'delete')
     if markup == "没有可用的对话。":
         await update.message.reply_text(markup)
@@ -322,10 +323,10 @@ async def remake(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     # check_message_and_user might not be suitable due to group context
     # Keep specific checks inside if needed
-    if tg.is_message_expired(update):
+    if public.is_message_expired(update):
         logger.warning(f"忽略过期的 /remake 命令，消息ID: {update.message.message_id}")
         return
-    info = await tg.group_msg_parse(update)
+    info = public.update_info_get(update, context)
     if await conv.group_delete(info):
         logger.info(f"处理 /remake 命令，用户ID: {update.effective_user.id}")
         await update.message.reply_text("您已重开对话！")
@@ -342,12 +343,12 @@ async def switch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         context (ContextTypes.DEFAULT_TYPE): 上下文对象。
     """
     # Decorator handles basic checks and user update
-    if not await group.admin_check(update, context):
+    if not public.group_admin_check(update):
         logger.warning(f"非管理员尝试使用 /switch 命令，用户ID: {update.effective_user.id}")
         await update.message.reply_text("该指令仅管理员可用")
         return
-    group_info = await tg.group_msg_parse(update)
-    markup = public.print_char_list('load', 'group', group_info['group_id'])
+    info = public.update_info_get(update, context)
+    markup = public.print_char_list('load', 'group', info['group_id'])
     if markup == "没有可操作的角色。":
         await update.message.reply_text(markup)
     else:
@@ -363,7 +364,7 @@ async def addf(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         update (Update): Telegram 更新对象。
         context (ContextTypes.DEFAULT_TYPE): 上下文对象。
     """
-    info = tg.user_msg_parse(update)
+    info = public.update_info_get(update)
     # 获取命令参数
     args = context.args if hasattr(context, 'args') else []
     if len(args) < 2:
@@ -372,12 +373,12 @@ async def addf(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     target_user_id = args[0]
     value = int(args[1])
     # 权限检查
-    if user.is_admin(info['user_id']):
+    if public.user_admin_check(info['user_id']):
         if target_user_id == 'all':
             if db.user_frequency_free(value):
                 await update.message.reply_text(f"已为所有用户添加{value}条额度")
         else:
             if db.user_info_update(target_user_id, 'remain_frequency', value, True):
-                await update.message.reply_text(f"已为{user.info_get(target_user_id)['user_name']}添加{value}条额度")
+                await update.message.reply_text(f"已为{public.user_info_get(target_user_id)['user_name']}添加{value}条额度")
     else:
         await update.message.reply_text("无权限操作，仅管理员可用。")
