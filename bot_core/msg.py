@@ -227,15 +227,39 @@ async def _generate_group_message_background(info, prompts, conv_id, group_name,
                                              placeholder_message):
     try:
         response = await llm.get_response_no_stream(prompts, conv_id, 'group', info['api'])
-        response_token = llm.calculate_token_count(response)
+        response_token = 0
+
+        if response is None:
+            logger.warning(f"LLM returned None response for group_name: {group_name}, user_name: {user_name}")
+            cleared_response = "抱歉，未能获取回复。"
+            # response 变量保持为 None，以便 conv.group_update 知道原始回复是 None
+        else:
+            response_str = str(response) # 确保是字符串类型
+            try:
+                response_token = llm.calculate_token_count(response_str)
+            except Exception as e_token:
+                logger.error(f"Error calculating token for response: {response_str}, error: {e_token}")
+                # response_token 保持为 0
+            
+            extracted_content = txt.extract_tag_content(response_str, 'content')
+            if extracted_content: # 如果成功提取到标签内容
+                cleared_response = extracted_content
+            else: # 否则使用原始回复字符串
+                cleared_response = response_str
+        
+        # 再次检查 cleared_response 是否为空或仅包含空白字符
+        if not cleared_response.strip():
+            if response is not None: # 如果原始回复不是None，但处理后变空
+                cleared_response = str(response) # 回退到原始回复的字符串形式
+            else: # 如果原始回复是None，并且默认的错误消息意外地为空
+                cleared_response = "抱歉，回复内容处理后为空。"
+
         logger.info(
             f"群聊非流式回复完成, group_name: {group_name}, user_name: {user_name}, output_token: {response_token}")
-        cleared_response = txt.extract_tag_content(response, 'content') or response
-        # 检查回复是否为空
-        if not cleared_response or cleared_response.strip() == "":
-            cleared_response = response
+        
+        # response 可能为 None，cleared_response 确保是字符串
         await conv.group_update(info, response, cleared_response, placeholder_message)
-        await _finalize_message(placeholder_message, str(cleared_response))
+        await _finalize_message(placeholder_message, cleared_response) # cleared_response 确保是字符串
     except Exception as e:
         logger.error(f"群聊非流式回复后台处理失败: {str(e)}", exc_info=True)
         try:
