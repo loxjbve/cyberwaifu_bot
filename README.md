@@ -1,6 +1,7 @@
 # Cyber Waifu Bot
 
 一个基于 Telegram 的多角色 AI 聊天机器人，支持自定义角色、群组管理、关键词触发、加密货币行情分析等多种扩展功能，适合 RP 聊天、群聊娱乐~与自动化管理~。
+
 测试版： https://t.me/cuicui_waifu_bot
 ---
 
