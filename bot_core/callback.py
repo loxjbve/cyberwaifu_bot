@@ -133,7 +133,7 @@ async def _handle_set_character(update: Update, character: str) -> None:
                 await update.callback_query.message.reply_text(meeting_message)
                 info = public.update_info_get(update)
                 db.dialog_content_add(info['conv_id'], 'assistant', 1, meeting_message,
-                                      '', 0, 'private')
+                                      meeting_message, 0, 'private')
             elif char_data is None:
                 logger.warning(f"未能加载角色 {character} 的数据文件。")
     except Exception as e:
