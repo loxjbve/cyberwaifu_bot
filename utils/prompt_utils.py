@@ -5,7 +5,7 @@ from typing import Dict, List, Optional, Tuple, Any  # 用于类型提示
 import tiktoken  # 用于计算token数
 import re  # 用于正则表达式处理
 import time  # 用于缓存过期时间
-
+from utils import text_utils as txt
 """
 模块概述：处理提示构建，包括加载数据和生成提示字符串。
 重构版本：将大型函数拆分为更小的专用函数，提高代码可读性和可维护性。
@@ -255,20 +255,6 @@ def insert_character_info(prompt_text: str, character: str) -> str:
     return insert_text(prompt_text, processed_char_str, '</character>', 'before')
 
 
-# ===== 用户输入处理函数 =====
-
-def extract_special_control(input_text: str) -> Tuple[str, Optional[str]]:
-    """从用户输入中提取特殊控制标记，返回清理后的输入和控制内容。"""
-    pattern = r'<[^>]+>'  # 正则表达式：匹配 <something> 但不包括嵌套
-    match = re.search(pattern, input_text)
-    
-    if not match:
-        return input_text, None
-    
-    special_str = match.group(0)[1:-1].strip()  # 提取匹配的子字符串，例如 "<example>" -> "example"
-    cleaned_input = re.sub(pattern, '', input_text, count=1)  # count=1 表示只替换第一个匹配
-    
-    return cleaned_input, special_str
 
 
 def format_user_control(control_content: str) -> str:
@@ -324,7 +310,7 @@ def build_prompts(character: str, input_text: str, set_name: str) -> str:
     prompt_text += "以下是用户最新输入:\r\n"
     
     # 处理用户输入中的特殊控制标记
-    cleaned_input, special_control = extract_special_control(input_text)
+    cleaned_input, special_control = txt.extract_special_control(input_text)
     
     # 如果存在特殊控制，添加到提示中
     if special_control:

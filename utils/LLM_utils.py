@@ -126,7 +126,7 @@ async def get_response_no_stream(current_input, conv_id=0, output_type='once', a
             api_key, api_url, api_model = get_api_config(api_name)
             client, model = await build_client_managed(api_key, api_url, api_model)
             messages = await get_full_msg(conv_id, output_type, current_input, True)
-            # print(f"完整prompts:{str(messages)}")
+            #print(f"完整prompts:{str(messages)}")
             response = await client.chat.completions.create(
                 model=model,
                 messages=messages,
@@ -135,7 +135,9 @@ async def get_response_no_stream(current_input, conv_id=0, output_type='once', a
             )
             return response.choices[0].message.content
         except Exception as e:
+            #raise e
             return str(RuntimeError(f"API调用失败 (no_stream): {str(e)}"))
+
 
 
 async def get_response_stream(current_input, conv_id=0, output_type='once', api_name=default_api):
