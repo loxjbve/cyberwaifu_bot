@@ -47,7 +47,7 @@ def private_new(user_id, config) -> str:
         raise DatabaseError(f"新建私聊对话失败: {str(e)}")
 
 
-async def group_new(group_info) -> int:
+def group_new(group_info) -> int:
     """
     创建新的群聊对话。
 

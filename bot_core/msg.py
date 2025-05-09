@@ -10,6 +10,7 @@ from bot_core import public
 from bot_core import conversation as conv
 import telegram
 from bot_core.exceptions import BotError, DatabaseError, LLMError
+from bot_core.models import PrivateConversation, Group
 
 # 设置日志配置
 logging.basicConfig(
@@ -35,7 +36,7 @@ async def msg_group_handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     needs_reply = public.group_msg_needs_reply(update, context)
     logger.info(f"群聊消息检查回复需求，结果: {needs_reply}，用户ID: {update.effective_user.id}")
     if needs_reply == 'random' or needs_reply == 'keyword':
-        await group_once_handle(update, context, needs_reply)
+        await group_once_handle(update, needs_reply)
         return
     if needs_reply == 'reply' or needs_reply == '@':
         await group_chat_handle(update)
@@ -55,8 +56,6 @@ async def msg_private_handle(update: Update, context: ContextTypes.DEFAULT_TYPE)
         if not info['conv_id']:  # 创建聊天
             conv.private_new(info['user_id'], info)
             info = public.update_info_get(update)
-
-        logger.info(f"处理私聊消息，用户: {info['user_name']}\r\n{info['message_text']}")
         if info['remain'] > 0:
             result = await private_chat_handle(update)
             if result is not None:
@@ -97,7 +96,7 @@ async def newchar_handle(update, newchar_state, user_id):
         return
 
 
-async def group_once_handle(update, context, trigger_type: str) -> Optional[str]:
+async def group_once_handle(update, trigger_type: str) -> Optional[str]:
     """
     一次性生成群聊消息回复。
 
@@ -111,28 +110,11 @@ async def group_once_handle(update, context, trigger_type: str) -> Optional[str]
     """
     info = public.update_info_get(update)
     try:
-        api, char, preset = db.group_config_get(info['group_id'])
-        prompts_str = prompt.build_prompts(char, info['message_text'], preset)
-        group_dialog = db.group_dialog_get(info['group_id'], 10)
-        insert_txt = f"<现在是群聊模式，你需要先看看群友在聊什么，再输出内容：\r\n"
-        for dialog in group_dialog:
-            if dialog[1]:
-                insert_txt += f"USER:{dialog[1]}:\r\n{dialog[0]}\r\n"
-        insert_txt += ">"
-        # print(prompts_str)
-        prompts_str = prompt.insert_text(prompts_str, insert_txt, '以下是用户最新输入:\r\n', 'before')
-        prompts_str = prompt.insert_text(prompts_str,
-                                         f"你需要回复的用户的姓名或网名是‘{info['user_name']}，以下是用户的输入’\r\n",
-                                         '以下是用户最新输入:\r\n', 'before')
-        # print(prompts_str)
-
-        # 发送占位符消息
+        group = Group(info)
+        group.set_trigger_type(trigger_type)
         placeholder_message = await update.message.reply_text("思考中...")
-        # 后台异步生成并编辑消息
         asyncio.create_task(
-            _generate_message_once_background(prompts_str, info['group_name'], info['user_name'],
-                                              info['message_id'], info['group_id'],
-                                              trigger_type, placeholder_message, info['api']))
+            _generate_message_once_background(group, info, placeholder_message))
         return None
     except Exception as e:
         logger.error(f"一次性生成群聊回复失败, group: {info['group_name']}, user: {info['user_name']}, 错误: {str(e)}")
@@ -142,38 +124,13 @@ async def group_once_handle(update, context, trigger_type: str) -> Optional[str]
 async def group_chat_handle(update) -> Optional[str]:
     """处理群聊消息"""
     info = public.update_info_get(update)
-    conv_id = db.conversation_group_get(info['group_id'], info['user_id'])
-    info['conv_id'] = conv_id
-    if not conv_id:
-        await conv.group_new(info)
-        conv_id = db.conversation_group_get(info['group_id'], info['user_id'])
+    group = Group(info)
+    group.get_conv_id()
+    group.add_message(info, 'user')
     try:
-        api_char_preset = db.group_config_get(info['group_id'])
-        if not api_char_preset:
-            logger.error(f"群组配置不存在，group_id: {info['group_id']}")
-            await update.message.reply_text("群组未初始化或配置缺失，请先设置群组角色和API。")
-            return None
-        api, char, preset = api_char_preset
-        key, url, model_name = llm.get_api_config(api)
-        client, model = await llm.build_client_managed(key, url, model_name)
-        prompts = prompt.insert_text(prompt.build_prompts(char, info['message_text'], preset),
-                                     f"你需要回复的用户的姓名或网名是‘{info['user_name']}，以下是用户的输入’\r\n",
-                                     '以下是用户最新输入:\r\n', 'before')
-        group_dialog = db.group_dialog_get(info['group_id'], 10)
-        insert_txt = f"<现在是群聊模式，你需要先看看群友在聊什么，再输出内容：\r\n"
-        for dialog in group_dialog:
-            if dialog[1]:
-                insert_txt += f"{dialog[1]}:\r\n{dialog[0]}\r\n"
-        insert_txt += ">"
-        prompts = prompt.insert_text(prompts, insert_txt, '以下是用户最新输入:\r\n', 'before')
-        # 发送占位符消息
         placeholder_message = await update.message.reply_text("思考中...")
-        # 后台异步生成并编辑消息
-        # print(f"{group_name}的{user_name}需要回复，对话id{conv_id}输入内容{input_text}")
         asyncio.create_task(
-            _generate_group_message_background(info, prompts, conv_id, info['group_name'],
-                                               info['user_name'],
-                                               placeholder_message))
+            _generate_group_message_background(group, placeholder_message))
         return None
     except Exception as e:
         logger.error(f"{info['group_name']}群组配置获取失败,, 错误: {str(e)}")
@@ -182,39 +139,28 @@ async def group_chat_handle(update) -> Optional[str]:
 
 async def private_chat_handle(update: Update) -> Optional[str]:
     """处理私聊消息"""
+
     info = public.update_info_get(update)
-    key, url, model_name = llm.get_api_config(info['api'])
-    client, model = await llm.build_client_managed(key, url, model_name)
-    prompts = prompt.build_prompts(info['char'], info['message_text'], info['preset'])
+    conversation = PrivateConversation(info['conv_id'])
+    conversation.add_message(info, 'user')
     if info['stream'] == 'yes':
-        # 使用 asyncio.create_task 将流式处理放到后台执行
-        asyncio.create_task(_streaming_response(update))
-        return None  # 立即返回，不阻塞事件循环
+        asyncio.create_task(_streaming_response(update, conversation))
+        return None
     else:
-
-        placeholder_message = await update.message.reply_text("思考中...")  # 发送占位符
-        # 非流式也使用后台任务处理
+        placeholder_message = await update.message.reply_text("思考中...")
         asyncio.create_task(
-            _non_streaming_response(info, model, prompts, placeholder_message))
-        return None  # 立即返回
+            _non_streaming_response(info, conversation, placeholder_message))
+        return None
 
 
-async def _generate_message_once_background(prompts_str, group_name, user_name, message_id, group_id,
-                                            trigger_type, placeholder_message, api):
+async def _generate_message_once_background(group, info, placeholder_message):
     try:
-        response = await llm.get_response_no_stream(prompts_str, 0, 'once', api)
-        response_token = llm.calculate_token_count(response)
-        logger.info(
-            f"一次性群聊回复完成, group_name: {group_name}, user_name: {user_name}, output_token: {response_token}")
-        cleared_response = txt.extract_tag_content(response, 'content') or response
-        # 检查回复是否为空
-        if not cleared_response or cleared_response.strip() == "":
-            logger.warning(f"一次性群聊回复内容为空, group_name: {group_name}, user_name: {user_name}")
-            cleared_response = "抱歉，我暂时无法回复这条消息。"
-        db.group_dialog_update(message_id, 'trigger_type', trigger_type, group_id)
-        db.group_dialog_update(message_id, 'raw_response', response, group_id)
-        db.group_dialog_update(message_id, 'processed_response', cleared_response, group_id)
+        prompts = group.build_prompt(info['message_text'])
+        response = await llm.get_response_no_stream(prompts, 0, 'once', group.api)
+        cleared_response = group.clear_text(response)
         await _finalize_message(placeholder_message, cleared_response)
+        group.update_dialog(info['message_id'], response)
+        logger.info(f"回复{group.name}的{group.user_name}完成")
     except Exception as e:
         logger.error(f"一次性群聊回复后台处理失败: {str(e)}", exc_info=True)
         try:
@@ -223,43 +169,16 @@ async def _generate_message_once_background(prompts_str, group_name, user_name, 
             logger.error(f"编辑群聊错误消息失败: {edit_e}")
 
 
-async def _generate_group_message_background(info, prompts, conv_id, group_name, user_name,
-                                             placeholder_message):
+async def _generate_group_message_background(group, placeholder_message):
     try:
-        response = await llm.get_response_no_stream(prompts, conv_id, 'group', info['api'])
-        response_token = 0
-
-        if response is None:
-            logger.warning(f"LLM returned None response for group_name: {group_name}, user_name: {user_name}")
-            cleared_response = "抱歉，未能获取回复。"
-            # response 变量保持为 None，以便 conv.group_update 知道原始回复是 None
-        else:
-            response_str = str(response) # 确保是字符串类型
-            try:
-                response_token = llm.calculate_token_count(response_str)
-            except Exception as e_token:
-                logger.error(f"Error calculating token for response: {response_str}, error: {e_token}")
-                # response_token 保持为 0
-            
-            extracted_content = txt.extract_tag_content(response_str, 'content')
-            if extracted_content: # 如果成功提取到标签内容
-                cleared_response = extracted_content
-            else: # 否则使用原始回复字符串
-                cleared_response = response_str
-        
-        # 再次检查 cleared_response 是否为空或仅包含空白字符
-        if not cleared_response.strip():
-            if response is not None: # 如果原始回复不是None，但处理后变空
-                cleared_response = str(response) # 回退到原始回复的字符串形式
-            else: # 如果原始回复是None，并且默认的错误消息意外地为空
-                cleared_response = "抱歉，回复内容处理后为空。"
-
-        logger.info(
-            f"群聊非流式回复完成, group_name: {group_name}, user_name: {user_name}, output_token: {response_token}")
-        
-        # response 可能为 None，cleared_response 确保是字符串
-        await conv.group_update(info, response, cleared_response, placeholder_message)
-        await _finalize_message(placeholder_message, cleared_response) # cleared_response 确保是字符串
+        prompts = group.build_prompt(group.info['message_text'])
+        response = await llm.get_response_no_stream(prompts, group.conv_id, 'group', group.api)
+        cleared_response = group.clear_text(response)
+        logger.info(f"群聊对话回复完成, group_name: {group.name}, {group.user_name}")
+        await conv.group_update(group.info, response, cleared_response, placeholder_message)
+        await _finalize_message(placeholder_message, cleared_response)  # cleared_response 确保是字符串
+        message = {'message_id': placeholder_message.message_id, 'message_text': response}
+        group.add_message(message, 'assistant')
     except Exception as e:
         logger.error(f"群聊非流式回复后台处理失败: {str(e)}", exc_info=True)
         try:
@@ -268,31 +187,23 @@ async def _generate_group_message_background(info, prompts, conv_id, group_name,
             logger.error(f"编辑群聊错误消息失败: {edit_e}")
 
 
-async def _streaming_response(update) -> None:
+async def _streaming_response(update, conversation) -> None:
     """处理流式传输回复逻辑，生成并逐步更新响应内容"""
-
     info = public.update_info_get(update)
-    logger.info(f"使用流式传输生成私聊回复, user_id: {info['user_id']}")
-    key, url, model_name = llm.get_api_config(info['api'])
-    client, model = await llm.build_client_managed(key, url, model_name)
-    prompts = prompt.build_prompts(info['char'], info['message_text'], info['preset'])
+    # logger.info(f"使用流式传输生成私聊回复, user_id: {info['user_id']}")
+    conversation.build_client()
+    prompts = conversation.build_prompt(info['message_text'])
     sent_message = None  # 初始化 sent_message
     try:
         # 初始化响应消息
         sent_message = await update.message.reply_text("...", parse_mode="markdown")
-        msg_id = sent_message.message_id
-        # 获取流式响应并处理
-        full_response = await _process_streaming_response_background(info['api'], prompts, info['conv_id'],
+        full_response = await _process_streaming_response_background(conversation.api, prompts, conversation.conv_id,
                                                                      sent_message)
-        cleared_response = txt.extract_tag_content(full_response, 'content') or full_response
+        cleared_response = conversation.clear_text(full_response, 'assistant')
         # 最终更新消息内容
         await _finalize_message(sent_message, cleared_response)
-        # 记录 token 和对话内容 (awaiting the async function)
-        await conv.dialog_add(info['user_id'], info['conv_id'], prompts, info['message_text'], full_response,
-                              cleared_response, msg_id)
-        if not cleared_response.startswith('API调用失败:'):
-            if db.user_info_update(info['user_id'], 'remain_frequency', -1, True):
-                logger.info(f"{info['user_name']}已扣除，剩余{info['remain']}")
+        message = {'message_id': sent_message.message_id, 'message_text': info['message_text']}
+        conversation.add_message(message, 'assistant')
     except Exception as e:
         logger.error(f"处理流式响应时出错: {e}", exc_info=True)
         if sent_message:
@@ -302,53 +213,29 @@ async def _streaming_response(update) -> None:
                 logger.error(f"编辑流式错误消息失败: {edit_e}")
 
 
-async def _non_streaming_response(info, model, prompts,
+async def _non_streaming_response(info, conversation,
                                   placeholder_message: telegram.Message) -> None:
     """
     处理非流式传输回复逻辑 (后台任务)。
 
     Args:
-        update (Update): Telegram更新对象。
-        client: LLM客户端。
-        model: LLM模型。
-        prompts (str): 提示词。
-        conv_id (int): 对话ID。
+        info:字典
+        conversation:会话对象
         placeholder_message (telegram.Message): 占位符消息对象。
     """
 
     try:
-        logger.info(f"{info['user_name']}后台处理非流式私聊回复，模型{model}")
-        # 注意：llm.get_response_no_stream 是异步函数，必须直接 await，不能用 asyncio.to_thread
-        full_response = await llm.get_response_no_stream(prompts, info['conv_id'], 'private', info['api'])
-        response_token = llm.calculate_token_count(full_response)
-        # 调用异步版本的 get_current_input_token
-        input_token = await llm.get_current_input_token(info['conv_id'], 'private', prompts, True)
-        logger.info(
-            f"非流式生成私聊回复完成, user_id: {info['user_name']}, input_token: {input_token}, output_token: {response_token}")
+        logger.info(f"{info['user_name']}后台处理非流式私聊回复，模型{conversation.model}")
+        full_response = await llm.get_response_no_stream(conversation.build_prompt(info['message_text']),
+                                                         conversation.conv_id, 'private', conversation.api)
+        message = {'message_id': placeholder_message.message_id, 'message_text': full_response}
+        conversation.add_message(message, 'assistant')
+        await conversation.build_client()
+        await _finalize_message(placeholder_message, conversation.clear_text(full_response, 'assistant'))
 
-        cleared_response = txt.extract_tag_content(full_response, 'content') or full_response
-
-        # 数据库操作也放入后台线程
-        current_turn_order = await asyncio.to_thread(db.dialog_turn_get, info['conv_id'], 'private')
-        await asyncio.to_thread(db.dialog_content_add, info['conv_id'], 'user', current_turn_order + 1,
-                                info['message_text'],
-                                re.sub(r'<[^>]*>', '', info['message_text']), info['message_id'], 'private')  # 记录原始消息ID
-        await asyncio.to_thread(db.dialog_content_add, info['conv_id'], 'assistant', current_turn_order + 2,
-                                full_response, cleared_response, placeholder_message.message_id, 'private')  # 记录占位符消息ID
-        await asyncio.to_thread(db.conversation_turns_update, info['conv_id'], current_turn_order + 2, 'private')
-        await asyncio.to_thread(db.user_info_update, info['user_id'], 'input_tokens', input_token, True)
-        await asyncio.to_thread(db.user_info_update, info['user_id'], 'output_tokens', response_token, True)
-        await asyncio.to_thread(db.user_info_update, info['user_id'], 'dialog_turns', 2, True)
-        # 编辑占位符消息
-        await _finalize_message(placeholder_message, cleared_response)
-        if cleared_response.startswith('API调用失败:') == False:
-            if db.user_info_update(info['user_id'], 'remain_frequency', -1, True):
-                logger.info(f"{info['user_name']}已扣除，剩余{info['remain'] - 1}")
 
     except TypeError as te:
-        # Catch the specific TypeError if calculate_token_count fails
         logger.error(f"后台处理非流式回复时发生类型错误 (可能在 token 计算时): {te}", exc_info=True)
-        logger.error(f"full_response type: {type(full_response)}, value: {full_response}")
         try:
             await placeholder_message.edit_text("处理回复时发生内部错误 (类型错误)。")
         except Exception as edit_e:

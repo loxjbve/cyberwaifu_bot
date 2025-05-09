@@ -7,4 +7,4 @@ def extract_tag_content(text, tag):
     matches = re.findall(pattern, text, re.DOTALL)
     if matches:
         return matches[-1]  # 返回最后一个匹配项的内容
-    return ""
+    return

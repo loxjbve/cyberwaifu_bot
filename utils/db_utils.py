@@ -17,7 +17,7 @@ class DatabaseConnectionPool:
     """数据库连接池，使用单例模式实现"""
     _instance = None
     _lock = threading.Lock()
-    
+
     def __new__(cls, db_file: str = "./data/data.db", max_connections: int = 5):
         with cls._lock:
             if cls._instance is None:
@@ -28,7 +28,7 @@ class DatabaseConnectionPool:
                 cls._instance.connection_locks = []
                 cls._instance.initialize_pool()
         return cls._instance
-    
+
     def initialize_pool(self):
         """初始化连接池"""
         for _ in range(self.max_connections):
@@ -38,7 +38,7 @@ class DatabaseConnectionPool:
                 self.connection_locks.append(threading.Lock())
             except Error as e:
                 print(f"初始化连接池时发生错误: {e}")
-    
+
     def get_connection(self) -> Optional[Tuple[sqlite3.Connection, int]]:
         """获取一个可用的数据库连接"""
         for i, lock in enumerate(self.connection_locks):
@@ -51,12 +51,12 @@ class DatabaseConnectionPool:
         except Error as e:
             print(f"创建临时连接时发生错误: {e}")
             return None, -1
-    
+
     def release_connection(self, index: int):
         """释放连接"""
         if 0 <= index < len(self.connection_locks):
             self.connection_locks[index].release()
-    
+
     def close_all(self):
         """关闭所有连接"""
         for conn in self.connections:
@@ -83,17 +83,17 @@ def execute_db_operation(operation_type: str, command: str, params: Tuple = ()):
     conn, conn_index = db_pool.get_connection()
     if not conn:
         return [] if operation_type == "query" else 0
-    
+
     try:
         cursor = conn.cursor()
         cursor.execute(command, params)
-        
+
         if operation_type == "update":
             conn.commit()
             result = cursor.rowcount
         else:  # query
             result = cursor.fetchall()
-        
+
         return result
     except sqlite3.Error as e:
         print(f"数据库{operation_type}错误: {e}")
@@ -120,6 +120,13 @@ def user_config_get(userid: int) -> Optional[Tuple]:
     command = "SELECT char, api, preset, conv_id,stream FROM user_config WHERE uid = ?"
     result = query_db(command, (userid,))
     return result[0] if result else None
+
+
+def user_api_get(userid: int) -> str:
+    """获取用户配置，返回角色、api、预设、当前对话"""
+    command = "SELECT api FROM user_config WHERE uid = ?"
+    result = query_db(command, (userid,))
+    return result[0][0] if result else ''
 
 
 def user_stream_get(userid: int) -> Optional[Tuple]:
@@ -207,7 +214,7 @@ def user_info_update(userid: int, field: str, value: Any, increment: bool = Fals
     :return: 更新是否成功
     """
     if increment:
-        command = f"UPDATE users SET {field} = {field} + ? WHERE uid = ?"
+        command = f"UPDATE users SET {field} = COALESCE({field}, 0) + ? WHERE uid = ?"
     else:
         command = f"UPDATE users SET {field} = ? WHERE uid = ?"
     result = revise_db(command, (value, userid))
@@ -238,6 +245,11 @@ def dialog_content_add(conv_id: int, role: str, turn_order: int, raw_content: st
             command = "UPDATE group_user_conversations SET update_at = ? WHERE conv_id = ?"
             return revise_db(command, (create_at, conv_id)) > 0
         return False
+
+
+def dialog_new_content_add(conv_id: int, turn: int) -> bool:
+    command = "INSERT INTO dialogs (conv_id,turn_order) values (?,?)"
+    return True if revise_db(command, (conv_id, turn)) else False
 
 
 def dialog_latest_del(conv_id: int) -> int:
@@ -318,6 +330,12 @@ def conversation_private_get(conv_id: int) -> Optional[Tuple]:
     return result[0] if result else None
 
 
+def conversation_user_get(conv_id: int) -> int | None:
+    command = "SELECT user_id from conversations where conv_id = ?"
+    result = query_db(command, (conv_id,))
+    return result[0][0] if result else None
+
+
 def conversation_group_config_get(conv_id: int) -> Optional[Tuple]:
     """获取私聊对话信息"""
     command = "SELECT group_id FROM group_user_conversations WHERE conv_id = ?"
@@ -338,7 +356,7 @@ def conversation_private_update(conv_id: int, char: str, preset: str) -> bool:
 def conversation_private_arg_update(conv_id: int, field: str, value: str or int, increment: bool = False) -> bool:
     """更新私聊对话信息"""
     if increment:
-        command = f"UPDATE conversations SET {field} = {field} + ? WHERE conv_id = ?"
+        command = f"UPDATE conversations SET {field} = COALESCE({field}, 0) + ? WHERE conv_id = ?"
     else:
         command = f"UPDATE conversations SET {field} = ? WHERE conv_id = ?"
     result = revise_db(command, (value, conv_id))
