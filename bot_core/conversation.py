@@ -133,7 +133,7 @@ async def dialog_add(user_id: int, conv_id: int, prompts: str, input_text: str, 
         # Consider raising or handling the error further if needed
 
 
-async def group_update(info, response, cleared_response, placeholder_message):
+async def group_update(info, response, cleared_response, placeholder_message_id):
     conv_id = info['conv_id']
     input_text = info['message_text']
     message_id = info['message_id']
@@ -143,7 +143,7 @@ async def group_update(info, response, cleared_response, placeholder_message):
     await asyncio.to_thread(db.dialog_content_add, conv_id, 'user', current_turn_order + 1, input_text,
                             re.sub(r'<[^>]*>', '', input_text), message_id, 'group')
     await asyncio.to_thread(db.dialog_content_add, conv_id, 'assistant', current_turn_order + 2, response,
-                            cleared_response, placeholder_message.message_id, 'group')
+                            cleared_response, placeholder_message_id, 'group')
     await asyncio.to_thread(db.group_dialog_update, message_id, 'trigger_type', 'reply', group_id)
     await asyncio.to_thread(db.group_dialog_update, message_id, 'raw_response', response, group_id)
     await asyncio.to_thread(db.group_dialog_update, message_id, 'processed_response', cleared_response, group_id)

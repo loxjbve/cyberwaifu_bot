@@ -1,16 +1,13 @@
 import asyncio
-import re
 import logging
 from typing import Optional
 from telegram import Update
 from telegram.ext import ContextTypes
-from utils import prompt_utils as prompt, LLM_utils as llm, text_utils as txt, db_utils as db
+from utils import LLM_utils as llm
 from telegram.error import BadRequest, TelegramError
 from bot_core import public
-from bot_core import conversation as conv
 import telegram
-from bot_core.exceptions import BotError, DatabaseError, LLMError
-from bot_core.models import PrivateConversation, Group
+
 
 # 设置日志配置
 logging.basicConfig(
@@ -30,16 +27,32 @@ httpx_logger.propagate = True
 
 
 async def msg_group_handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """处理群组消息。
+
+    Args:
+        update (Update): Telegram 更新对象。
+        context (ContextTypes.DEFAULT_TYPE): 上下文对象。
+    """
     await public.group_info_update_or_create(update, context)
     info = public.update_info_get(update)
+    # 添加消息到群消息记录
     public.group_dialog_add(info)
+    # 检查是否需要回复
     needs_reply = public.group_msg_needs_reply(update, context)
-    logger.info(f"群聊消息检查回复需求，结果: {needs_reply}，用户ID: {update.effective_user.id}")
+    if not needs_reply:
+        return
+    else:
+        conversation = public.Conversation(info)
+        conversation.set_trigger(needs_reply)
+        conversation.save_to_db('user')
+        conversation.check_conv_id('group')
+        placeholder_message = await update.message.reply_text("思考中...")
+        conversation.set_send_msg_id(placeholder_message.message_id)
     if needs_reply == 'random' or needs_reply == 'keyword':
-        await group_once_handle(update, needs_reply)
+        asyncio.create_task(_generate_message_once_background(conversation, placeholder_message))
         return
     if needs_reply == 'reply' or needs_reply == '@':
-        await group_chat_handle(update)
+        asyncio.create_task(_generate_group_message_background(conversation, placeholder_message))
         return
 
 
@@ -53,11 +66,14 @@ async def msg_private_handle(update: Update, context: ContextTypes.DEFAULT_TYPE)
     # Keep existing logic, decorators are for commands
     try:
         info = public.update_info_get(update)
-        if not info['conv_id']:  # 创建聊天
-            conv.private_new(info['user_id'], info)
-            info = public.update_info_get(update)
+        conversation = public.Conversation(info)
+        # 检查聊天是否存在
+        conversation.check_conv_id('private')
+
+        #logger.info(f"处理私聊消息，用户: {info['user_name']}\r\n{info['message_text']}")
         if info['remain'] > 0:
-            result = await private_chat_handle(update)
+            conversation.save_to_db('user')
+            result = await private_chat_handle(conversation, update)
             if result is not None:
                 try:
                     await update.message.reply_text(result, parse_mode="markdown")
@@ -72,7 +88,36 @@ async def msg_private_handle(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text(f"处理消息时发生错误{str(e)}，请稍后重试。")
 
 
+async def private_chat_handle(conversation, update) -> Optional[str]:
+    """处理私聊消息的核心逻辑，根据用户配置选择流式或非流式回复。
+
+    Args:
+        conversation: 当前会话对象。
+        update: Telegram 更新对象。
+
+    Returns:
+        Optional[str]: 如果是非流式回复且立即返回结果，则为回复文本，否则为None。
+    """
+    info = public.update_info_get(update)
+
+    if info['stream'] == 'yes':
+        asyncio.create_task(_streaming_response(update, conversation))
+        return None
+    else:
+        placeholder_message = await update.message.reply_text("思考中...")  # 发送占位符
+        conversation.set_send_msg_id(placeholder_message.message_id)
+        asyncio.create_task(_non_streaming_response(conversation, placeholder_message))
+        return None
+
+
 async def newchar_handle(update, newchar_state, user_id):
+    """处理创建新角色时的文件和文本输入。
+
+    Args:
+        update: Telegram 更新对象。
+        newchar_state (dict): 存储新角色创建状态的字典。
+        user_id (int): 用户ID。
+    """
     if update.message.document:
         file = update.message.document
         if file.mime_type in ['application/json', 'text/plain'] or file.file_name.endswith(('.json', '.txt')):
@@ -96,71 +141,18 @@ async def newchar_handle(update, newchar_state, user_id):
         return
 
 
-async def group_once_handle(update, trigger_type: str) -> Optional[str]:
-    """
-    一次性生成群聊消息回复。
+async def _generate_message_once_background(conversation, placeholder_message):
+    """后台任务：为一次性群聊生成回复（例如由关键词或随机触发）。
 
     Args:
-        update (Update): Telegram更新对象。
-        context (ContextTypes.DEFAULT_TYPE): 上下文对象。
-        trigger_type (str): 触发类型。
-
-    Returns:
-        Optional[str]: 生成的回复内容。如果是异步后台处理，返回 None。
+        conversation: 当前会话对象。
+        placeholder_message: 占位符消息对象。
     """
-    info = public.update_info_get(update)
     try:
-        group = Group(info)
-        group.set_trigger_type(trigger_type)
-        placeholder_message = await update.message.reply_text("思考中...")
-        asyncio.create_task(
-            _generate_message_once_background(group, info, placeholder_message))
-        return None
-    except Exception as e:
-        logger.error(f"一次性生成群聊回复失败, group: {info['group_name']}, user: {info['user_name']}, 错误: {str(e)}")
-        raise LLMError(f"一次性生成群聊回复失败: {str(e)}")
-
-
-async def group_chat_handle(update) -> Optional[str]:
-    """处理群聊消息"""
-    info = public.update_info_get(update)
-    group = Group(info)
-    group.get_conv_id()
-    group.add_message(info, 'user')
-    try:
-        placeholder_message = await update.message.reply_text("思考中...")
-        asyncio.create_task(
-            _generate_group_message_background(group, placeholder_message))
-        return None
-    except Exception as e:
-        logger.error(f"{info['group_name']}群组配置获取失败,, 错误: {str(e)}")
-        raise DatabaseError(f"群组配置获取失败: {str(e)}")
-
-
-async def private_chat_handle(update: Update) -> Optional[str]:
-    """处理私聊消息"""
-
-    info = public.update_info_get(update)
-    conversation = PrivateConversation(info['conv_id'])
-    conversation.add_message(info, 'user')
-    if info['stream'] == 'yes':
-        asyncio.create_task(_streaming_response(update, conversation))
-        return None
-    else:
-        placeholder_message = await update.message.reply_text("思考中...")
-        asyncio.create_task(
-            _non_streaming_response(info, conversation, placeholder_message))
-        return None
-
-
-async def _generate_message_once_background(group, info, placeholder_message):
-    try:
-        prompts = group.build_prompt(info['message_text'])
-        response = await llm.get_response_no_stream(prompts, 0, 'once', group.api)
-        cleared_response = group.clear_text(response)
-        await _finalize_message(placeholder_message, cleared_response)
-        group.update_dialog(info['message_id'], response)
-        logger.info(f"回复{group.name}的{group.user_name}完成")
+        response = await llm.get_response_no_stream(conversation.prompt, 0, 'once', conversation.api)
+        conversation.set_response_text(response)
+        conversation.save_to_db('assistant')
+        await _finalize_message(placeholder_message, conversation.cleared_response_text)
     except Exception as e:
         logger.error(f"一次性群聊回复后台处理失败: {str(e)}", exc_info=True)
         try:
@@ -169,16 +161,18 @@ async def _generate_message_once_background(group, info, placeholder_message):
             logger.error(f"编辑群聊错误消息失败: {edit_e}")
 
 
-async def _generate_group_message_background(group, placeholder_message):
+async def _generate_group_message_background(conversation, placeholder_message):
+    """后台任务：为持续性群聊生成回复（例如回复机器人或@机器人）。
+
+    Args:
+        conversation: 当前会话对象。
+        placeholder_message: 占位符消息对象。
+    """
     try:
-        prompts = group.build_prompt(group.info['message_text'])
-        response = await llm.get_response_no_stream(prompts, group.conv_id, 'group', group.api)
-        cleared_response = group.clear_text(response)
-        logger.info(f"群聊对话回复完成, group_name: {group.name}, {group.user_name}")
-        await conv.group_update(group.info, response, cleared_response, placeholder_message)
-        await _finalize_message(placeholder_message, cleared_response)  # cleared_response 确保是字符串
-        message = {'message_id': placeholder_message.message_id, 'message_text': response}
-        group.add_message(message, 'assistant')
+        response = await llm.get_response_no_stream(conversation.prompt, conversation.id, 'group', conversation.api)
+        conversation.set_response_text(response)
+        conversation.save_to_db('assistant')
+        await _finalize_message(placeholder_message, conversation.cleared_response_text)  # cleared_response 确保是字符串
     except Exception as e:
         logger.error(f"群聊非流式回复后台处理失败: {str(e)}", exc_info=True)
         try:
@@ -188,22 +182,25 @@ async def _generate_group_message_background(group, placeholder_message):
 
 
 async def _streaming_response(update, conversation) -> None:
-    """处理流式传输回复逻辑，生成并逐步更新响应内容"""
-    info = public.update_info_get(update)
-    # logger.info(f"使用流式传输生成私聊回复, user_id: {info['user_id']}")
-    conversation.build_client()
-    prompts = conversation.build_prompt(info['message_text'])
+    """处理流式传输回复逻辑，生成并逐步更新响应内容。
+
+    Args:
+        update: Telegram 更新对象。
+        conversation: 当前会话对象。
+    """
+
+    #logger.info(f"使用流式传输生成私聊回复, user_id: {conversation.info['user_id']}")
     sent_message = None  # 初始化 sent_message
     try:
         # 初始化响应消息
         sent_message = await update.message.reply_text("...", parse_mode="markdown")
-        full_response = await _process_streaming_response_background(conversation.api, prompts, conversation.conv_id,
-                                                                     sent_message)
-        cleared_response = conversation.clear_text(full_response, 'assistant')
-        # 最终更新消息内容
-        await _finalize_message(sent_message, cleared_response)
-        message = {'message_id': sent_message.message_id, 'message_text': info['message_text']}
-        conversation.add_message(message, 'assistant')
+        msg_id = sent_message.message_id
+        conversation.set_send_msg_id(msg_id)
+        # 获取流式响应并处理
+        full_response = await _process_streaming_response_background(conversation, sent_message)
+        conversation.set_response_text(full_response)
+        await _finalize_message(sent_message, conversation.cleared_response_text)
+        conversation.save_to_db('assistant')
     except Exception as e:
         logger.error(f"处理流式响应时出错: {e}", exc_info=True)
         if sent_message:
@@ -213,42 +210,31 @@ async def _streaming_response(update, conversation) -> None:
                 logger.error(f"编辑流式错误消息失败: {edit_e}")
 
 
-async def _non_streaming_response(info, conversation,
-                                  placeholder_message: telegram.Message) -> None:
+async def _non_streaming_response(conversation, placeholder_message: telegram.Message) -> None:
     """
     处理非流式传输回复逻辑 (后台任务)。
 
     Args:
-        info:字典
-        conversation:会话对象
+        conversation:conv对象。
         placeholder_message (telegram.Message): 占位符消息对象。
     """
 
     try:
-        logger.info(f"{info['user_name']}后台处理非流式私聊回复，模型{conversation.model}")
-        full_response = await llm.get_response_no_stream(conversation.build_prompt(info['message_text']),
-                                                         conversation.conv_id, 'private', conversation.api)
-        message = {'message_id': placeholder_message.message_id, 'message_text': full_response}
-        conversation.add_message(message, 'assistant')
-        await conversation.build_client()
-        await _finalize_message(placeholder_message, conversation.clear_text(full_response, 'assistant'))
 
+        full_response = await llm.get_response_no_stream(conversation.prompt, conversation.id, 'private',conversation.api)
+        conversation.set_response_text(full_response)
+        await _finalize_message(placeholder_message, conversation.cleared_response_text)
+        conversation.save_to_db('assistant')
 
-    except TypeError as te:
-        logger.error(f"后台处理非流式回复时发生类型错误 (可能在 token 计算时): {te}", exc_info=True)
-        try:
-            await placeholder_message.edit_text("处理回复时发生内部错误 (类型错误)。")
-        except Exception as edit_e:
-            logger.error(f"编辑错误消息失败: {edit_e}")
     except Exception as e:
-        logger.error(f"{info['user_name']}后台处理非流式回复失败, 错误: {e}", exc_info=True)
+        logger.error(f"{conversation.info['user_name']}后台处理非流式回复失败, 错误: {e}", exc_info=True)
         try:
             await placeholder_message.edit_text("处理消息时出错，请稍后再试。")
         except Exception as edit_e:
             logger.error(f"编辑错误消息失败: {edit_e}")
 
 
-async def _process_streaming_response_background(api, prompts: str, conv_id: int, sent_message) -> str:
+async def _process_streaming_response_background(conversation, sent_message) -> str:
     """
     处理流式传输响应，定期更新消息内容。
     """
@@ -256,7 +242,7 @@ async def _process_streaming_response_background(api, prompts: str, conv_id: int
     last_update_time = asyncio.get_event_loop().time()
     last_updated_content = "..."
     # Correctly iterate over the async generator
-    async for chunk in llm.get_response_stream(prompts, conv_id, 'private', api):
+    async for chunk in llm.get_response_stream(conversation.prompt, conversation.id, 'private', conversation.api):
         response_chunks.append(chunk)
         full_response = "".join(response_chunks)
         current_time = asyncio.get_event_loop().time()

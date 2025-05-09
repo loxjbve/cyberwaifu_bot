@@ -2,12 +2,12 @@ import logging
 from typing import Union
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from utils import file_utils as file, db_utils as db
-import datetime
+from utils import file_utils as file, db_utils as db, LLM_utils as llm, prompt_utils as prompt, text_utils as txt
 import random
 from datetime import timedelta
 import datetime
 from bot_core.exceptions import BotError, DatabaseError
+import bot_core.conversation as conv
 
 ADMIN = file.load_config()['admin']
 # 设置日志配置
@@ -30,7 +30,128 @@ DEFAULT_PRESET = 'Default_meeting'
 DEFAULT_API = 'gemini-2'
 
 
+class Conversation():
+    """会话类，用于管理和处理用户与机器人的交互信息。"""
+    def __init__(self, info: dict):
+        """初始化会话对象。
+
+        Args:
+            info (dict): 包含会话所需信息的字典，例如用户信息、消息内容等。
+        """
+        self.info = info or None
+        self.id = info['conv_id'] or None
+        self.char = info['char'] or None
+        self.preset = info['preset'] or None
+        self.api = info['api'] or None
+        self.type = 'private' if info['chat_type'] == 'private' else 'group'
+        self.history = llm.build_openai_messages(self.id, self.type) or None
+        self.prompt = prompt.build_prompts(self.char, info['message_text'], self.preset) or None
+        self.response_text = None
+        self.cleared_response_text = None
+        self.send_msg_id = None
+        self.turn = db.dialog_turn_get(self.id, self.type) or 0
+        self.trigger = None
+        self.received_text = info["message_text"] or None
+        self.cleared_received_text = txt.extract_special_control(self.received_text)[0] or self.received_text
+        logging.info(self.cleared_received_text)
+        if type == 'group':
+            self.prompt = prompt.insert_text(self.prompt,
+                                             f"你需要回复的用户的姓名或网名是‘{info['user_name']}，以下是用户的输入’\r\n",
+                                             '以下是用户最新输入:\r\n', 'before')
+            group_dialog = db.group_dialog_get(info['group_id'], 10)
+            insert_txt = f"<现在是群聊模式，你需要先看看群友在聊什么，再输出内容：\r\n"
+            for dialog in group_dialog:
+                if dialog[1]:
+                    insert_txt += f"{dialog[1]}:\r\n{dialog[0]}\r\n"
+            insert_txt += ">"
+            self.prompt = prompt.insert_text(self.prompt, insert_txt, '以下是用户最新输入:\r\n', 'before')
+
+    def save_to_db(self, role: str):
+        """将当前会话信息保存到数据库。
+
+        Args:
+            role (str): 当前消息的角色，'user' 或 'assistant'。
+        """
+        self.turn += 1
+        token = llm.calculate_token_count(self.received_text if role == 'user' else self.response_text)
+
+        db.dialog_content_add(self.id, role, self.turn, self.received_text if role == 'user' else self.response_text,
+                              self.cleared_response_text if role == 'assistant' else self.cleared_received_text,
+                              self.info['message_id'] if role == 'user' else self.send_msg_id, self.type)
+
+        if self.type == 'private':
+            db.user_info_update(self.info['user_id'], 'input_tokens' if role == 'user' else 'output_tokens', token,
+                                True)
+            db.user_info_update(self.info['user_id'], 'dialog_turns', 1, True)
+            db.user_info_update(self.info['user_id'], 'remain_frequency', -1 if (role == 'assistant') and (
+                not self.cleared_response_text.startswith('API调用失败:')) else 0, True)
+            db.conversation_private_arg_update(self.id, 'turns', 1, True)
+        else:
+            if role == 'assistant':
+                db.group_dialog_update(self.info['message_id'], 'raw_response', self.response_text,
+                                       self.info['group_id'])
+                db.group_dialog_update(self.info['message_id'], 'processed_response', self.cleared_response_text,
+                                       self.info['group_id'])
+                db.group_dialog_update(self.info['message_id'], 'trigger_type', self.trigger,
+                                       self.info['group_id'])
+                if self.trigger == 'ramdom' or 'keyword':
+                    logger.info(f"一次性群聊回复完成, group_name: {self.info['group_name']}, user_name: {self.info['user_name']}, output_token: {token}")
+                else:
+                    conv.group_update(self.info, self.response_text, self.cleared_response_text, self.send_msg_id)
+
+    def set_send_msg_id(self, msg_id: int):
+        """设置机器人发送消息的ID。
+
+        Args:
+            msg_id (int): 消息ID。
+        """
+        self.send_msg_id = msg_id
+
+    def set_trigger(self, trigger: str):
+        """设置触发回复的类型。
+
+        Args:
+            trigger (str): 触发类型，例如 'reply', '@', 'keyword', 'random'。
+        """
+        self.trigger = trigger
+
+    def set_response_text(self, text: str):
+        """设置机器人的回复文本，并提取清理后的文本内容。
+
+        Args:
+            text (str): 机器人的原始回复文本。
+        """
+        self.response_text = text
+        self.cleared_response_text = txt.extract_tag_content(text, 'content')
+        logging.info(self.cleared_response_text)
+
+    def check_conv_id(self, chat_type: str):
+        """检查会话ID是否存在，如果不存在则创建新的会话ID。
+
+        Args:
+            chat_type (str): 聊天类型，'private' 或 'group'。
+        """
+        if not self.info['conv_id']:
+            if chat_type == 'group':
+                conv.group_new(self.info)
+                self.id = db.conversation_group_get(self.info['group_id'], self.info['user_id'])
+            else:
+                conv.private_new(self.info['user_id'], self.info)
+                self.id = db.user_conv_id_get(self.info['user_id'])
+
+
 def update_info_get(update: Update) -> dict:
+    """从Telegram的Update对象中提取并整合有用的信息。
+
+    Args:
+        update (Update): Telegram的Update对象。
+
+    Returns:
+        dict: 包含用户、消息、群组等信息的字典。
+
+    Raises:
+        BotError: 解析Update信息时发生错误。
+    """
     try:
         if update.message:
             user_info = _extract_user_info(update.message.from_user)
@@ -313,11 +434,12 @@ def group_admin_check(update: Update) -> bool:
 
     Args:
         update (Update): Telegram更新对象。
-        context (ContextTypes.DEFAULT_TYPE): 上下文对象。
-        check_type (str): 检查类型，msg或callback。
 
     Returns:
-        bool: 是否为管理员。
+        bool: 如果是管理员或机器人管理员则返回 True，否则返回 False。
+
+    Raises:
+        DatabaseError: 检查管理员权限失败时抛出。
     """
     try:
         info = update_info_get(update)
@@ -328,11 +450,30 @@ def group_admin_check(update: Update) -> bool:
         raise DatabaseError(f"检查管理员权限失败: {str(e)}")
 
 
-def user_admin_check(user_id) -> bool:
+def user_admin_check(user_id: int) -> bool:
+    """检查用户是否为机器人管理员。
+
+    Args:
+        user_id (int): 用户ID。
+
+    Returns:
+        bool: 如果是机器人管理员则返回 True，否则返回 False。
+    """
     return True if user_id in ADMIN else False
 
 
-def user_info_get(user_id) -> dict:
+def user_info_get(user_id: int) -> dict:
+    """获取指定用户的详细信息。
+
+    Args:
+        user_id (int): 用户ID。
+
+    Returns:
+        dict: 包含用户信息的字典，如果用户不存在则返回空字典。
+
+    Raises:
+        DatabaseError: 获取用户信息失败时抛出。
+    """
     try:
         result = db.user_info_get(user_id)
         if result:
@@ -345,7 +486,21 @@ def user_info_get(user_id) -> dict:
         raise DatabaseError(f"获取用户信息失败: {str(e)}")
 
 
-def user_info_update(user_id, user_name, first_name, last_name) -> str:
+def user_info_update(user_id: int, user_name: str, first_name: str, last_name: str) -> str:
+    """更新或创建用户信息。
+
+    Args:
+        user_id (int): 用户ID。
+        user_name (str): 用户名。
+        first_name (str): 用户名字。
+        last_name (str): 用户姓氏。
+
+    Returns:
+        str: 操作结果的提示信息。
+
+    Raises:
+        DatabaseError: 更新或创建用户信息失败时抛出。
+    """
     try:
         if db.user_config_check(user_id):
             db.user_info_update(user_id, 'first_name', first_name)
@@ -362,7 +517,18 @@ def user_info_update(user_id, user_name, first_name, last_name) -> str:
         raise DatabaseError(f"更新或创建用户信息失败: {str(e)}")
 
 
-def user_config_get(user_id) -> dict:
+def user_config_get(user_id: int) -> dict:
+    """获取用户配置信息，如果不存在则创建默认配置。
+
+    Args:
+        user_id (int): 用户ID。
+
+    Returns:
+        dict: 包含用户配置信息的字典。
+
+    Raises:
+        DatabaseError: 获取用户配置失败时抛出。
+    """
     try:
         result = db.user_config_get(user_id)
         if not result:
@@ -378,7 +544,7 @@ def user_config_get(user_id) -> dict:
 
 def is_message_expired(update: Update) -> bool:
     """
-    检查消息是否过期（超过30秒）。
+    检查消息是否过期（默认超过30秒）。
 
     Args:
         update (Update): Telegram 更新对象。
@@ -395,6 +561,14 @@ def is_message_expired(update: Update) -> bool:
 
 
 def _extract_user_info(user) -> dict:
+    """从Telegram User对象中提取用户信息。
+
+    Args:
+        user: Telegram User对象。
+
+    Returns:
+        dict: 包含用户ID、名字、姓氏、用户名和完整用户名的字典。
+    """
     return {
         'user_id': user.id,
         'first_name': user.first_name or '',
@@ -405,6 +579,14 @@ def _extract_user_info(user) -> dict:
 
 
 def _extract_message_info(message) -> dict:
+    """从Telegram Message对象中提取消息信息。
+
+    Args:
+        message: Telegram Message对象。
+
+    Returns:
+        dict: 包含消息ID和消息文本的字典。
+    """
     return {
         'message_id': message.message_id or '',
         'message_text': message.text or ''
@@ -412,7 +594,16 @@ def _extract_message_info(message) -> dict:
 
 
 def _extract_group_info(chat) -> dict:
+    """从Telegram Chat对象中提取群组或私聊信息。
+
+    Args:
+        chat: Telegram Chat对象。
+
+    Returns:
+        dict: 包含聊天ID（群组ID或用户ID）、群组名称和聊天类型的字典。
+    """
     return {
-        'group_id': chat.id or '',
-        'group_name': chat.title or ''
+        'user_id' if chat.type == 'private' else 'group_id': chat.id or '',
+        'group_name': chat.title or '',
+        'chat_type': chat.type or ''
     }
