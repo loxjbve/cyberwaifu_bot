@@ -4,8 +4,7 @@ from telegram.ext import ContextTypes
 import logging
 from asyncio import Semaphore
 from bot_core import public
-from bot_core import conversation as conv
-from bot_core.decorators import handle_command_errors, check_message_and_user,group_admin_required  # Import decorators
+from bot_core.decorators import handle_command_errors, check_message_and_user, group_admin_required  # Import decorators
 from utils import db_utils as db, LLM_utils as llm
 import os
 import json
@@ -94,8 +93,9 @@ async def new(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     # Decorator handles checks and basic logging
     info = public.update_info_get(update)
-    result = conv.private_new(info['user_id'], info)
-    await update.message.reply_text(f"{result}", parse_mode='MarkDown')
+    conversation = public.Conversation(info)
+    conversation.new('private')
+    await update.message.reply_text(f"创建成功！", parse_mode='MarkDown')
 
     # 添加选择预设的逻辑
     preset_markup = public.print_preset_list()
@@ -122,9 +122,14 @@ async def save(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         update (Update): Telegram 更新对象。
     """
     # Decorator handles checks and basic logging
-    info = public.update_info_get(update)
-    result = await conv.private_save(info)
-    await update.message.reply_text(f"{result}")
+    config = public.update_info_get(update)
+    if db.conversation_private_update(config['conv_id'], config['char'],config['preset']) and db.conversation_private_save(config['conv_id']):
+        summary = await llm.generate_summary(config['conv_id'])
+        print(f'总结:{summary}')
+        if db.conversation_private_summary_add(config['conv_id'], summary):
+            logger.info(f"保存对话并生成总结, conv_id: {config['conv_id']}, summary: {summary}")
+            await update.message.reply_text(f"保存成功，对话总结:`{summary}`")
+    await update.message.reply_text("保存失败")
 
 
 @handle_command_errors
@@ -153,9 +158,9 @@ async def char(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         context (ContextTypes.DEFAULT_TYPE): 上下文对象。
     """
     # Decorator handles checks and basic logging
-    info = public.update_info_get(update)
-    conv.private_new(info['user_id'], info)
-    markup = public.print_char_list('load', 'private', info['user_id'])
+    conversation = public.Conversation(public.update_info_get(update))
+    conversation.new('private')
+    markup = public.print_char_list('load', 'private', conversation.info['user_id'])
     if markup == "没有可操作的角色。":
         await update.message.reply_text(markup)
     else:
@@ -343,9 +348,9 @@ async def remake(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     info = public.update_info_get(update)
     if info['need_update']:
-        public.group_info_update_or_create(update, context)
+        await public.group_info_update_or_create(update, context)
     info = public.update_info_get(update)
-    if await conv.group_delete(info):
+    if db.conversation_group_delete(update.message.chat.id, update.message.from_user.id):
         logger.info(f"处理 /remake 命令，用户ID: {update.effective_user.id}")
         await update.message.reply_text("您已重开对话！")
 
@@ -371,6 +376,7 @@ async def switch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     else:
         await update.message.reply_text("请选择一个角色：", reply_markup=markup)
 
+
 @handle_command_errors
 @group_admin_required
 async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -386,7 +392,7 @@ async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if info['need_update']:
         await public.group_info_update_or_create(update, context)
         info = public.update_info_get(update)
-    
+
     # 获取并验证输入参数
     args = context.args if hasattr(context, 'args') else []
     if len(args) < 1:
@@ -396,9 +402,8 @@ async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not 0 <= rate_value <= 1:
         await update.message.reply_text("请输入一个0-1的小数")
         return
-    if db.group_info_update(info['group_id'],'rate',rate_value):
+    if db.group_info_update(info['group_id'], 'rate', rate_value):
         await update.message.reply_text(f"已设置触发频率: {rate_value}")
-
 
 
 @handle_command_errors

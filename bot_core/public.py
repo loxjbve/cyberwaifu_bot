@@ -1,4 +1,4 @@
-import logging
+import logging, uuid, time
 from typing import Union
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
@@ -7,7 +7,6 @@ import random
 from datetime import timedelta
 import datetime
 from bot_core.exceptions import BotError, DatabaseError
-import bot_core.conversation as conv
 
 ADMIN = file.load_config()['admin']
 # 设置日志配置
@@ -32,6 +31,7 @@ DEFAULT_API = 'gemini-2'
 
 class Conversation():
     """会话类，用于管理和处理用户与机器人的交互信息。"""
+
     def __init__(self, info: dict):
         """初始化会话对象。
 
@@ -55,49 +55,24 @@ class Conversation():
         self.cleared_received_text = txt.extract_special_control(self.received_text)[0] or self.received_text
         logging.info(self.cleared_received_text)
         if type == 'group':
-            self.prompt = prompt.insert_text(self.prompt,
-                                             f"你需要回复的用户的姓名或网名是‘{info['user_name']}，以下是用户的输入’\r\n",
-                                             '以下是用户最新输入:\r\n', 'before')
-            group_dialog = db.group_dialog_get(info['group_id'], 10)
-            insert_txt = f"<现在是群聊模式，你需要先看看群友在聊什么，再输出内容：\r\n"
-            for dialog in group_dialog:
-                if dialog[1]:
-                    insert_txt += f"{dialog[1]}:\r\n{dialog[0]}\r\n"
-            insert_txt += ">"
-            self.prompt = prompt.insert_text(self.prompt, insert_txt, '以下是用户最新输入:\r\n', 'before')
+            self._build_group_prompt()
 
     def save_to_db(self, role: str):
         """将当前会话信息保存到数据库。
-
         Args:
             role (str): 当前消息的角色，'user' 或 'assistant'。
         """
         self.turn += 1
         token = llm.calculate_token_count(self.received_text if role == 'user' else self.response_text)
-
-        db.dialog_content_add(self.id, role, self.turn, self.received_text if role == 'user' else self.response_text,
-                              self.cleared_response_text if role == 'assistant' else self.cleared_received_text,
-                              self.info['message_id'] if role == 'user' else self.send_msg_id, self.type)
-
+        if self.trigger != 'random' and self.trigger != 'keyword':
+            db.dialog_content_add(self.id, role, self.turn,
+                                  self.received_text if role == 'user' else self.response_text,
+                                  self.cleared_response_text if role == 'assistant' else self.cleared_received_text,
+                                  self.info['message_id'] if role == 'user' else self.send_msg_id, self.type)
         if self.type == 'private':
-            db.user_info_update(self.info['user_id'], 'input_tokens' if role == 'user' else 'output_tokens', token,
-                                True)
-            db.user_info_update(self.info['user_id'], 'dialog_turns', 1, True)
-            db.user_info_update(self.info['user_id'], 'remain_frequency', -1 if (role == 'assistant') and (
-                not self.cleared_response_text.startswith('API调用失败:')) else 0, True)
-            db.conversation_private_arg_update(self.id, 'turns', 1, True)
+            self._save_private_dialog(token, role)
         else:
-            if role == 'assistant':
-                db.group_dialog_update(self.info['message_id'], 'raw_response', self.response_text,
-                                       self.info['group_id'])
-                db.group_dialog_update(self.info['message_id'], 'processed_response', self.cleared_response_text,
-                                       self.info['group_id'])
-                db.group_dialog_update(self.info['message_id'], 'trigger_type', self.trigger,
-                                       self.info['group_id'])
-                if self.trigger == 'ramdom' or 'keyword':
-                    logger.info(f"一次性群聊回复完成, group_name: {self.info['group_name']}, user_name: {self.info['user_name']}, output_token: {token}")
-                else:
-                    conv.group_update(self.info, self.response_text, self.cleared_response_text, self.send_msg_id)
+            self._save_group_dialog(token, role)
 
     def set_send_msg_id(self, msg_id: int):
         """设置机器人发送消息的ID。
@@ -125,19 +100,96 @@ class Conversation():
         self.cleared_response_text = txt.extract_tag_content(text, 'content')
         logging.info(self.cleared_response_text)
 
-    def check_conv_id(self, chat_type: str):
+    def check_id(self, chat_type: str):
         """检查会话ID是否存在，如果不存在则创建新的会话ID。
-
         Args:
             chat_type (str): 聊天类型，'private' 或 'group'。
+        Raises:
+            ValueError: 如果尝试多次后仍无法创建ID。
         """
-        if not self.info['conv_id']:
-            if chat_type == 'group':
-                conv.group_new(self.info)
-                self.id = db.conversation_group_get(self.info['group_id'], self.info['user_id'])
+        if not self.info.get('conv_id'):  # 使用 get() 避免 KeyError
+            try:
+                if chat_type == 'group':
+                    new_conv_id = self.new('group')
+                    logger.info(
+                        f"新建群聊对话, group_name: {self.info['group_name']}, user_name: {self.info['user_name']}, conv_id: {new_conv_id}")
+                else:  # 假设为 'private'
+                    new_conv_id = self.new('private')
+                    logger.info(f"{self.info['user_name']} 新建私聊对话, conv_id: {new_conv_id}")
+                self.id = new_conv_id  # 设置属性
+            except Exception as e:  # 捕获一般异常，便于调试
+                logger.error(f"创建会话ID失败: {e}")
+                raise
+
+    def new(self, conv_type: str) -> int or str:
+        """辅助方法：生成新的会话ID并创建数据库记录。
+        Args:
+            conv_type (str): 'group' 或 'private'。
+        Returns:
+            int or str: 生成的新的会话ID。
+        Raises:
+            ValueError: 如果多次尝试后失败。
+        """
+        max_attempts = 5  # 限制尝试次数，避免无限循环
+        for _ in range(max_attempts):
+
+            new_conv_id = random.randint(10000000, 99999999)  # 生成UUID的整数表示（如果需要整数）
+
+            if conv_type == 'group':
+                if db.conversation_group_check(new_conv_id):  # 假设这个函数检查ID是否可用
+                    db.conversation_group_create(new_conv_id, self.info['user_id'], self.info['user_name'],
+                                                 self.info['group_id'], self.info['group_name'])
+                    return new_conv_id
+            else:  # 'private'
+                if db.conversation_private_create(new_conv_id, self.info['user_id'], self.info['char'],
+                                                  self.info['preset']):
+                    return new_conv_id
+
+            # 如果检查失败，等待一小会儿再试（可选，避免快速重试）
+            #time.sleep(0.1)  # 导入 time 模块
+
+        raise ValueError(f"无法创建{conv_type}会话ID，经过{max_attempts}次尝试")
+
+    def _save_private_dialog(self, token, role):
+        db.user_info_update(self.info['user_id'], 'input_tokens' if role == 'user' else 'output_tokens', token,
+                            True)
+        db.user_info_update(self.info['user_id'], 'dialog_turns', 1, True)
+        db.user_info_update(self.info['user_id'], 'remain_frequency', -1 if (role == 'assistant') and (
+            not self.cleared_response_text.startswith('API调用失败:')) else 0, True)
+        db.conversation_private_arg_update(self.id, 'turns', 1, True)
+
+    def _save_group_dialog(self, token, role):
+        print(f"trigger is {self.trigger},role is {role},saving")
+        if role == 'assistant':
+
+            db.group_dialog_update(self.info['message_id'], 'raw_response', self.response_text, self.info['group_id'])
+            db.group_dialog_update(self.info['message_id'], 'processed_response', self.cleared_response_text,
+                                   self.info['group_id'])
+            db.group_dialog_update(self.info['message_id'], 'trigger_type', self.trigger, self.info['group_id'])
+            if self.trigger == 'ramdom' or self.trigger == 'keyword':
+                logger.info(
+                    f"一次性群聊回复完成, group_name: {self.info['group_name']}, user_name: {self.info['user_name']}, output_token: {token}")
             else:
-                conv.private_new(self.info['user_id'], self.info)
-                self.id = db.user_conv_id_get(self.info['user_id'])
+                #print('增加群聊对话turn')
+                db.conversation_group_update(self.info['group_id'], self.info['user_id'], 'turns', 1)
+                #print('增加群聊dialog')
+                db.group_dialog_update(self.id, 'trigger_type', 'reply', self.info['group_id'])
+                db.group_dialog_update(self.id, 'raw_response', self.response_text, self.info['group_id'])
+                db.group_dialog_update(self.id, 'processed_response', self.cleared_response_text, self.info['group_id'])
+
+    def _build_group_prompt(self):
+        self.prompt = prompt.insert_text(self.prompt,
+                                         f"你需要回复的用户的姓名或网名是‘{self.info['user_name']}，以下是用户的输入’\r\n",
+                                         '以下是用户最新输入:\r\n', 'before')
+        group_dialog = db.group_dialog_get(self.info['group_id'], 10)
+        insert_txt = f"<现在是群聊模式，你需要先看看群友在聊什么，再输出内容：\r\n"
+        for dialog in group_dialog:
+            if dialog[1]:
+                insert_txt += f"{dialog[1]}:\r\n{dialog[0]}\r\n"
+        insert_txt += ">"
+        self.prompt = prompt.insert_text(self.prompt, insert_txt, '以下是用户最新输入:\r\n', 'before')
+
+
 
 
 def update_info_get(update: Update) -> dict:
@@ -574,7 +626,7 @@ def _extract_user_info(user) -> dict:
         'first_name': user.first_name or '',
         'last_name': user.last_name or '',
         'username': user.username or '',
-        'user_name': str(user.first_name) + str(user.last_name) or ''
+        'user_name': (str(user.first_name or '') + str(user.last_name or '')).strip()
     }
 
 

@@ -8,7 +8,6 @@ from telegram.error import BadRequest, TelegramError
 from bot_core import public
 import telegram
 
-
 # 设置日志配置
 logging.basicConfig(
     level=logging.INFO,
@@ -45,13 +44,14 @@ async def msg_group_handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         conversation = public.Conversation(info)
         conversation.set_trigger(needs_reply)
         conversation.save_to_db('user')
-        conversation.check_conv_id('group')
+
         placeholder_message = await update.message.reply_text("思考中...")
         conversation.set_send_msg_id(placeholder_message.message_id)
     if needs_reply == 'random' or needs_reply == 'keyword':
         asyncio.create_task(_generate_message_once_background(conversation, placeholder_message))
         return
     if needs_reply == 'reply' or needs_reply == '@':
+        conversation.check_id('group')
         asyncio.create_task(_generate_group_message_background(conversation, placeholder_message))
         return
 
@@ -68,9 +68,9 @@ async def msg_private_handle(update: Update, context: ContextTypes.DEFAULT_TYPE)
         info = public.update_info_get(update)
         conversation = public.Conversation(info)
         # 检查聊天是否存在
-        conversation.check_conv_id('private')
+        conversation.check_id('private')
 
-        #logger.info(f"处理私聊消息，用户: {info['user_name']}\r\n{info['message_text']}")
+        # logger.info(f"处理私聊消息，用户: {info['user_name']}\r\n{info['message_text']}")
         if info['remain'] > 0:
             conversation.save_to_db('user')
             result = await private_chat_handle(conversation, update)
@@ -151,8 +151,8 @@ async def _generate_message_once_background(conversation, placeholder_message):
     try:
         response = await llm.get_response_no_stream(conversation.prompt, 0, 'once', conversation.api)
         conversation.set_response_text(response)
-        conversation.save_to_db('assistant')
         await _finalize_message(placeholder_message, conversation.cleared_response_text)
+        conversation.save_to_db('assistant')
     except Exception as e:
         logger.error(f"一次性群聊回复后台处理失败: {str(e)}", exc_info=True)
         try:
@@ -171,8 +171,9 @@ async def _generate_group_message_background(conversation, placeholder_message):
     try:
         response = await llm.get_response_no_stream(conversation.prompt, conversation.id, 'group', conversation.api)
         conversation.set_response_text(response)
-        conversation.save_to_db('assistant')
+
         await _finalize_message(placeholder_message, conversation.cleared_response_text)  # cleared_response 确保是字符串
+        conversation.save_to_db('assistant')
     except Exception as e:
         logger.error(f"群聊非流式回复后台处理失败: {str(e)}", exc_info=True)
         try:
@@ -189,7 +190,7 @@ async def _streaming_response(update, conversation) -> None:
         conversation: 当前会话对象。
     """
 
-    #logger.info(f"使用流式传输生成私聊回复, user_id: {conversation.info['user_id']}")
+    # logger.info(f"使用流式传输生成私聊回复, user_id: {conversation.info['user_id']}")
     sent_message = None  # 初始化 sent_message
     try:
         # 初始化响应消息
@@ -221,7 +222,8 @@ async def _non_streaming_response(conversation, placeholder_message: telegram.Me
 
     try:
 
-        full_response = await llm.get_response_no_stream(conversation.prompt, conversation.id, 'private',conversation.api)
+        full_response = await llm.get_response_no_stream(conversation.prompt, conversation.id, 'private',
+                                                         conversation.api)
         conversation.set_response_text(full_response)
         await _finalize_message(placeholder_message, conversation.cleared_response_text)
         conversation.save_to_db('assistant')

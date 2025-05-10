@@ -71,10 +71,7 @@ def check_coin(text):
             "keywords": ["bnb", "币安币", "binance coin"],
             "result": "bnb"
         },
-        "usdt": {
-            "keywords": ["usdt", "泰达币", "tether"],
-            "result": "usdt"
-        },
+
         "ada": {
             "keywords": ["ada", "卡尔达诺", "cardano"],
             "result": "ada"

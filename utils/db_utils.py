@@ -524,7 +524,7 @@ def conversation_group_get(group_id: int, user_id: int) -> Optional[int]:
 
 def conversation_group_update(group_id: int, user_id: int, field: str, value: Any) -> bool:
     """更新指定用户在指定群组中未标记删除的群聊用户会话的指定字段。返回操作是否成功。"""
-    command = f"UPDATE group_user_conversations SET {field} = ? WHERE group_id = ? AND user_id = ? AND delete_mark = 'no'"
+    command = f"UPDATE group_user_conversations SET {field} = COALESCE({field}, 0) + ? WHERE group_id = ? AND user_id = ? AND delete_mark = 'no'"
     result = revise_db(command, (value, group_id, user_id))
     return result > 0
 
