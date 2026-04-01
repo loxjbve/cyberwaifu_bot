@@ -1,28 +1,15 @@
 {% extends "base.html" %}
 
 {% block title %}对话记录 - CyberWaifu Bot 后台管理系统{% endblock %}
-
+{% block page_id %}conversations{% endblock %}
 {% block page_title %}对话记录{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/admin_glass.css') }}">
-<style>
-    .summary-indicator {
-        display: inline-block;
-        vertical-align: middle;
-        margin-right: 5px;
-        color: var(--primary-color);
-        flex-shrink: 0;
-    }
-    .summary-preview {
-        display: flex;
-        align-items: center;
-    }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/lists.css', v=moment().timestamp() | int) }}">
 {% endblock %}
 
 {% block content %}
-<div class="content-wrapper users-page page-conversations">
+<div class="content-wrapper users-page page-conversations" data-page="conversations">
     <div class="card">
         <div class="card-header">
             <div class="header-container">
@@ -350,51 +337,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-    $(document).ready(function () {
-        // 生成摘要按钮点击事件
-        $(document).on('click', '.generate-summary-btn', function () {
-            const convId = $(this).data('conv-id');
-            const button = $(this);
-
-            // 防止重复点击
-            if (button.hasClass('loading')) {
-                return;
-            }
-
-            const originalIcon = button.html();
-            button.prop('disabled', true).addClass('loading').html('<span class="btn-text">生成中...</span>');
-
-            $.ajax({
-                url: '{{ url_for("api.api_generate_summary") }}',
-                method: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify({ conversation_id: convId }),
-                success: function (response) {
-                    if (response.success) {
-                        const summaryCell = button.closest('tr').find('.summary-preview');
-                        const truncatedSummary = response.summary.length > 30 ? response.summary.substring(0, 30) + '...' : response.summary;
-                        summaryCell.html(truncatedSummary).attr('title', response.summary);
-                        if (window.showNotification) {
-                            window.showNotification('摘要生成成功！', 'success');
-                        }
-                    } else {
-                        if (window.showNotification) {
-                            window.showNotification('摘要生成失败：' + (response.message || '未知错误'), 'error');
-                        }
-                    }
-                },
-                error: function (xhr, status, error) {
-                    console.error('生成摘要请求失败:', error);
-                    if (window.showNotification) {
-                        window.showNotification('请求失败，请稍后重试', 'error');
-                    }
-                },
-                complete: function () {
-                    button.prop('disabled', false).removeClass('loading').html(originalIcon);
-                }
-            });
-        });
-    });
-</script>
+<script type="module" src="{{ url_for('static', filename='js/pages/conversations.js', v=moment().timestamp() | int) }}"></script>
 {% endblock %}

@@ -1,16 +1,14 @@
 {% extends "base.html" %}
-{% set page_has_custom_scripts = true %}
 
 {% block title %}群组对话 - CyberWaifu Bot 后台管理系统{% endblock %}
-
+{% block page_id %}group-dialogs{% endblock %}
 {% block page_title %}
 群组对话
 <small class="text-muted">群组ID: {{ group.group_id }}</small>
 {% endblock %}
 
 {% block content %}
-<body data-group-id="{{ group.group_id }}">
-<div class="content-wrapper dialogs-page">
+<div class="content-wrapper dialogs-page" data-page="group-dialogs" data-group-id="{{ group.group_id }}" data-search-mode="{{ 'true' if search else 'false' }}">
     <!-- 群组信息卡片 (可折叠) -->
     <div class="glass-card collapsible-card" id="groupDetailsCard">
         <div class="card-header collapsible-header">
@@ -213,9 +211,8 @@
         </div>
     </div>
     {% endif %}
-
-    <!-- 消息详情模态框 -->
 </div>
+
 <!-- 消息详情模态框 -->
 <div class="modal-overlay" id="messageDetailModal" aria-hidden="true">
     <div class="modal-container" role="dialog" aria-labelledby="messageDetailModalLabel" aria-modal="true">
@@ -260,14 +257,13 @@
         </div>
     </div>
 </div>
-</body>
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/admin_glass.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/group_dialogs.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/lists.css', v=moment().timestamp() | int) }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/conversation.css', v=moment().timestamp() | int) }}">
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/group_dialogs.js') }}" defer></script>
+<script type="module" src="{{ url_for('static', filename='js/pages/group-dialogs.js', v=moment().timestamp() | int) }}"></script>
 {% endblock %}

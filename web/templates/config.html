@@ -1,215 +1,31 @@
 {% extends "base.html" %}
 
 {% block title %}配置文件管理 - CyberWaifu Bot{% endblock %}
+{% block page_id %}config{% endblock %}
 
 {% block extra_css %}
     <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/jsoneditor/9.10.2/jsoneditor.min.css" rel="stylesheet">
-    <style>
-        @keyframes glow {
-            from {
-                box-shadow: 0 0 5px -2px var(--primary-color), 0 0 10px -5px var(--primary-color);
-            }
-            to {
-                box-shadow: 0 0 5px 0px var(--primary-color), 0 0 15px -3px var(--primary-color);
-            }
-        }
-
-        .config-layout {
-            display: flex;
-            gap: 1.5rem;
-            height: calc(100vh - 120px);
-        }
-        .config-sidebar, .config-editor-area {
-            background: rgba(10, 25, 47, 0.85);
-            border: 1px solid var(--primary-color);
-            border-radius: var(--border-radius-lg);
-            transition: all 0.3s ease;
-            box-shadow: 0 0 15px -5px rgba(79, 172, 254, 0.5);
-        }
-        .config-sidebar:hover, .config-editor-area:hover {
-            border-color: #00f2fe;
-            box-shadow: 0 0 20px -5px rgba(0, 242, 254, 0.6);
-        }
-        .config-sidebar {
-            width: 300px;
-            flex-shrink: 0;
-            padding: 1rem;
-            overflow-y: auto;
-        }
-        .config-editor-area {
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-        .editor-toolbar {
-            padding: 1rem;
-            border-bottom: 1px solid var(--primary-color);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: rgba(10, 25, 47, 0.9);
-        }
-        .file-info .path {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-        }
-        .editor-main {
-            padding: 1.5rem;
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-        }
-        .editor-tabs {
-            display: flex;
-            margin-bottom: 1rem;
-            border-bottom: 1px solid var(--primary-color);
-        }
-        .tab-btn {
-            padding: 0.75rem 1.25rem;
-            border: none;
-            background: transparent;
-            cursor: pointer;
-            color: var(--text-secondary);
-            position: relative;
-            transition: all 0.3s ease;
-        }
-        .tab-btn:after {
-            content: '';
-            position: absolute;
-            bottom: -1px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 0;
-            height: 3px;
-            background: var(--primary-gradient);
-            transition: width 0.3s ease;
-        }
-        .tab-btn:hover {
-            color: white;
-        }
-        .tab-btn.active {
-            color: white;
-            font-weight: 600;
-        }
-        .tab-btn.active:after {
-            width: 100%;
-        }
-        .editor-content { flex-grow: 1; }
-        .editor-pane { display: none; height: 100%; }
-        .editor-pane.active { display: block; }
-        .CodeMirror {
-            height: 100%;
-            border: 1px solid var(--border-color);
-            border-radius: var(--border-radius-md);
-        }
-        .jsoneditor-container { height: 100%; }
-        .file-list .category-header {
-            font-weight: bold;
-            color: var(--primary-color);
-            margin-top: 1rem;
-            margin-bottom: 0.5rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 1px solid var(--primary-color);
-        }
-        .file-item {
-            display: flex;
-            align-items: center;
-            padding: 0.6rem 0.8rem;
-            border-radius: var(--border-radius-md);
-            cursor: pointer;
-            transition: all 0.2s ease;
-            border-left: 3px solid transparent;
-        }
-        .file-item:hover {
-            background-color: rgba(79, 172, 254, 0.1);
-            border-left-color: var(--primary-color);
-            transform: translateX(5px);
-        }
-        .file-item.active {
-            background-color: rgba(79, 172, 254, 0.2);
-            color: white;
-            border-left-color: #00f2fe;
-        }
-        .file-item.error {
-            background-color: var(--error-bg);
-            color: var(--error-color);
-        }
-        .file-item .icon { margin-right: 0.5rem; }
-        
-        /* Modal Styles */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.7);
-            backdrop-filter: blur(5px);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        }
-        .modal-overlay.active { display: flex; }
-        .modal-content {
-            background: rgba(10, 25, 47, 0.95);
-            padding: 2rem;
-            border-radius: var(--border-radius-lg);
-            width: 90%;
-            max-width: 500px;
-            border: 1px solid var(--primary-color);
-            box-shadow: 0 0 25px rgba(0, 242, 254, 0.3);
-        }
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid var(--primary-color);
-        }
-        .modal-title { font-size: 1.25rem; font-weight: 600; color: white; }
-        .modal-footer {
-            display: flex;
-            justify-content: flex-end;
-            gap: 0.75rem;
-            margin-top: 1.5rem;
-        }
-
-        /* JSON Editor Dark Theme */
-        .jsoneditor { border-color: var(--primary-color) !important; }
-        .jsoneditor-menu { background-color: #0A192F !important; border-bottom-color: var(--primary-color) !important; }
-        .jsoneditor-menu > button, .jsoneditor-menu > .jsoneditor-modes > button { color: white !important; }
-        .jsoneditor-tree, .jsoneditor-search, .jsoneditor-statusbar { background-color: #112240 !important; color: white !important; border-color: var(--primary-color) !important; }
-        div.jsoneditor-field, div.jsoneditor-value { color: white !important; }
-        div.jsoneditor-field.jsoneditor-readonly, div.jsoneditor-value.jsoneditor-readonly { color: #8892b0 !important; }
-        div.jsoneditor-tree button, div.jsoneditor-tree .jsoneditor-schema-error { color: white !important; }
-        .jsoneditor-tree-inner { padding-bottom: 20px !important; }
-        table.jsoneditor-tree td, table.jsoneditor-tree th, table.jsoneditor-tree tr { border-color: var(--primary-color) !important; }
-        div.jsoneditor-field[contenteditable=true]:focus, div.jsoneditor-value[contenteditable=true]:focus { background-color: #1d3d6e !important; border-color: #00f2fe !important; }
-        .jsoneditor-selected { background-color: #1d3d6e !important; }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/config.css', v=moment().timestamp() | int) }}">
 {% endblock %}
 
 {% block page_title %}配置管理{% endblock %}
 
 {% block content %}
-<div class="config-layout">
+<div class="config-layout" data-page="config">
     <!-- 文件列表侧边栏 -->
     <aside class="config-sidebar">
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h3 class="h5">配置文件</h3>
-            <button class="btn btn-primary btn-sm" onclick="showCreateModal()">
+            <button class="btn btn-primary btn-sm" id="showCreateModalBtn" type="button" data-action="open-create-file-modal">
                 <i class="fas fa-plus"></i> 新建
             </button>
         </div>
-        <button class="btn btn-secondary btn-sm w-100 mb-3" onclick="refreshFileList()">
+        <button class="btn btn-secondary btn-sm w-100 mb-3" id="refreshFileListBtn" type="button" data-action="refresh-config-files">
             <i class="fas fa-sync-alt"></i> 刷新列表
         </button>
-        <div id="fileList" class="file-list">
+        <div id="fileList" class="file-list" aria-live="polite">
             <div class="text-center p-3">
                 <div class="spinner"></div>
                 <p>加载中...</p>
@@ -225,10 +41,10 @@
                 <div class="path" id="currentFileInfo"></div>
             </div>
             <div class="actions">
-                <button class="btn btn-success btn-sm" onclick="saveFile()" id="saveBtn" disabled>
+                <button class="btn btn-success btn-sm" id="saveBtn" type="button" data-action="save-config-file" disabled>
                     <i class="fas fa-save"></i> 保存
                 </button>
-                <button class="btn btn-danger btn-sm" onclick="deleteFile()" id="deleteBtn" disabled>
+                <button class="btn btn-danger btn-sm" id="deleteBtn" type="button" data-action="delete-config-file" disabled>
                     <i class="fas fa-trash"></i> 删除
                 </button>
             </div>
@@ -257,11 +73,11 @@
 </div>
 
 <!-- 创建文件模态框 -->
-<div id="createFileModal" class="modal-overlay">
-    <div class="modal-content">
+<div id="createFileModal" class="modal-overlay" aria-hidden="true" data-modal="create-config-file">
+    <div class="modal-container">
         <div class="modal-header">
             <h5 class="modal-title">创建新配置文件</h5>
-            <button type="button" class="btn-close" onclick="closeCreateModal()"></button>
+            <button type="button" class="btn-close" data-modal-close></button>
         </div>
         <div class="modal-body">
             <form id="createFileForm">
@@ -292,8 +108,8 @@
             </form>
         </div>
         <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" onclick="closeCreateModal()">取消</button>
-            <button type="button" class="btn btn-primary" onclick="createFile()">创建</button>
+            <button type="button" class="btn btn-secondary" data-modal-close>取消</button>
+            <button type="button" class="btn btn-primary" id="createFileBtn" data-action="create-config-file">创建</button>
         </div>
     </div>
 </div>
@@ -308,268 +124,5 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/fold/foldcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/fold/foldgutter.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/fold/brace-fold.min.js"></script>
-    
-    <script>
-        let codeEditor;
-        let jsonEditor;
-        let currentFile = null;
-        let fileData = {};
-        let currentMode = 'visual'; // 'visual' or 'code'
-        
-        // 初始化编辑器
-        document.addEventListener('DOMContentLoaded', function() {
-            codeEditor = CodeMirror.fromTextArea(document.getElementById('codeEditor'), {
-                mode: 'application/json',
-                theme: 'monokai',
-                lineNumbers: true,
-                matchBrackets: true,
-                autoCloseBrackets: true,
-                foldGutter: true,
-                gutters: ['CodeMirror-linenumbers', 'CodeMirror-foldgutter'],
-                indentUnit: 2,
-                tabSize: 2
-            });
-            
-            const container = document.getElementById('jsoneditor');
-            const options = {
-                mode: 'tree',
-                modes: ['tree', 'view', 'form', 'code', 'text'],
-                search: true,
-                history: true,
-                onChange: () => {
-                    if (currentFile) document.getElementById('saveBtn').disabled = false;
-                }
-            };
-            jsonEditor = new JSONEditor(container, options);
-            
-            codeEditor.on('change', () => {
-                if (currentFile) document.getElementById('saveBtn').disabled = false;
-            });
-            
-            document.getElementById('editorModeTabs').addEventListener('click', (event) => {
-                const target = event.target.closest('.tab-btn');
-                if (!target) return;
-
-                const mode = target.dataset.mode;
-                if (mode === currentMode) return;
-
-                currentMode = mode;
-                
-                document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-                target.classList.add('active');
-
-                document.querySelectorAll('.editor-pane').forEach(pane => pane.classList.remove('active'));
-                document.getElementById(`${mode}-editor`).classList.add('active');
-
-                if (mode === 'visual') {
-                    syncFromCodeToVisual();
-                } else {
-                    syncFromVisualToCode();
-                }
-            });
-            
-            refreshFileList();
-        });
-        
-        function refreshFileList() {
-            fetch("{{ url_for('api.api_config_list') }}")
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) throw new Error(data.error);
-                    fileData = data;
-                    renderFileList(data);
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    document.getElementById('fileList').innerHTML = 
-                        `<div class="alert alert-danger">加载文件列表失败: ${error.message}</div>`;
-                });
-        }
-        
-        function renderFileList(data) {
-            const fileListEl = document.getElementById('fileList');
-            let html = '';
-            const categoryNames = { 'characters': '角色配置', 'config': '系统配置', 'prompts': '提示词' };
-            
-            for (const [category, files] of Object.entries(data)) {
-                html += `<div class="category-header">${categoryNames[category] || category}</div>`;
-                if (files.length === 0) {
-                    html += '<div class="text-muted small p-2">暂无文件</div>';
-                } else {
-                    files.forEach(file => {
-                        const errorClass = file.error ? ' error' : '';
-                        const title = file.error ? `错误: ${file.error}` : `大小: ${formatFileSize(file.size)}, 修改时间: ${formatDate(file.modified)}`;
-                        html += `
-                            <div class="file-item${errorClass}" onclick="${file.error ? '' : `loadFile(this, '${file.path}')`}" title="${title}">
-                                <i class="fas fa-file-alt icon"></i>
-                                <span class="flex-grow-1">${file.name}</span>
-                                ${file.error ? '<i class="fas fa-exclamation-triangle text-warning ms-1"></i>' : ''}
-                            </div>`;
-                    });
-                }
-            }
-            fileListEl.innerHTML = html;
-        }
-        
-        function loadFile(element, filePath) {
-            document.querySelectorAll('.file-item').forEach(item => item.classList.remove('active'));
-            element.classList.add('active');
-            
-            fetch(`{{ url_for("api.api_config_read") }}?path=${encodeURIComponent(filePath)}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) throw new Error(data.error);
-                    
-                    currentFile = data;
-                    document.getElementById('currentFileName').textContent = data.name;
-                    document.getElementById('currentFileInfo').textContent = `路径: ${data.path}`;
-                    
-                    const jsonContent = JSON.stringify(data.content, null, 2);
-                    codeEditor.setValue(jsonContent);
-                    jsonEditor.set(data.content);
-                    
-                    document.getElementById('saveBtn').disabled = true;
-                    document.getElementById('deleteBtn').disabled = false;
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('加载文件失败: ' + error.message);
-                });
-        }
-        
-        function saveFile() {
-            if (!currentFile) return alert('请先选择一个文件');
-            
-            try {
-                let content = (currentMode === 'visual') ? jsonEditor.get() : JSON.parse(codeEditor.getValue());
-                
-                fetch("{{ url_for('api.api_config_save') }}", {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ path: currentFile.path, content: content })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) throw new Error(data.error);
-                    alert('文件保存成功');
-                    document.getElementById('saveBtn').disabled = true;
-                    refreshFileList();
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('保存文件失败: ' + error.message);
-                });
-            } catch (e) {
-                alert('JSON格式错误: ' + e.message);
-            }
-        }
-        
-        function syncFromCodeToVisual() {
-            try {
-                jsonEditor.set(JSON.parse(codeEditor.getValue()));
-            } catch (e) {
-                console.warn('JSON格式错误，无法同步到可视化编辑器:', e.message);
-            }
-        }
-        
-        function syncFromVisualToCode() {
-            try {
-                codeEditor.setValue(JSON.stringify(jsonEditor.get(), null, 2));
-            } catch (e) {
-                console.warn('无法从可视化编辑器获取内容:', e.message);
-            }
-        }
-        
-        function deleteFile() {
-            if (!currentFile) return alert('请先选择一个文件');
-            if (!confirm(`确定要删除文件 "${currentFile.name}" 吗？\n\n删除的文件将被移动到备份位置，可以手动恢复。`)) return;
-            
-            fetch("{{ url_for('api.api_config_delete') }}", {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ path: currentFile.path })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.error) throw new Error(data.error);
-                
-                alert('文件删除成功\n备份位置: ' + data.backup);
-                currentFile = null;
-                document.getElementById('currentFileName').textContent = '请选择一个文件进行编辑';
-                document.getElementById('currentFileInfo').textContent = '';
-                codeEditor.setValue('');
-                jsonEditor.set({});
-                document.getElementById('saveBtn').disabled = true;
-                document.getElementById('deleteBtn').disabled = true;
-                refreshFileList();
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('删除文件失败: ' + error.message);
-            });
-        }
-        
-        const modal = document.getElementById('createFileModal');
-        function showCreateModal() {
-            document.getElementById('createFileForm').reset();
-            modal.classList.add('active');
-        }
-        function closeCreateModal() {
-            modal.classList.remove('active');
-        }
-        
-        function createFile() {
-            const category = document.getElementById('fileCategory').value;
-            const fileName = document.getElementById('fileName').value;
-            const template = document.getElementById('fileTemplate').value;
-            
-            if (!category || !fileName) return alert('请填写完整信息');
-            
-            let content = {};
-            if (template === 'character') {
-                content = { name: fileName, description: "角色描述", personality: "角色性格", scenario: "场景设定", greeting: "问候语", example_dialogue: "示例对话" };
-            } else if (template === 'config') {
-                content = { setting_name: "配置名称", value: "配置值", description: "配置说明" };
-            } else if (template === 'prompt') {
-                content = { name: fileName, system_prompt: "系统提示词", user_prompt: "用户提示词", description: "提示词说明" };
-            } else if (template === 'agent_docs') {
-                if (fileName === 'exp') {
-                    content = { experiences: [], last_updated: new Date().toISOString() };
-                } else if (fileName === 'mem') {
-                    content = { memories: {}, last_cleanup: new Date().toISOString() };
-                } else {
-                    content = { document_type: "agent_docs", created_at: new Date().toISOString(), data: {} };
-                }
-            }
-
-            fetch("{{ url_for('api.api_config_create') }}", {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ category: category, filename: fileName, content: content })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.error) throw new Error(data.error);
-                alert('文件创建成功');
-                closeCreateModal();
-                refreshFileList();
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('创建文件失败: ' + error.message);
-            });
-        }
-        
-        function formatFileSize(bytes) {
-            if (bytes === 0) return '0 Bytes';
-            const k = 1024;
-            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-        }
-        
-        function formatDate(timestamp) {
-            return new Date(timestamp * 1000).toLocaleString('zh-CN');
-        }
-    </script>
+    <script type="module" src="{{ url_for('static', filename='js/pages/config.js', v=moment().timestamp() | int) }}"></script>
 {% endblock %}

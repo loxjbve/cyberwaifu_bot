@@ -1,0 +1,83 @@
+:root {
+    color-scheme: dark;
+    --font-display: 'Space Grotesk', 'Noto Sans SC', sans-serif;
+    --font-body: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+    --font-mono: 'JetBrains Mono', 'Consolas', monospace;
+    --radius-xs: 0.4rem;
+    --radius-sm: 0.6rem;
+    --radius-md: 0.8rem;
+    --radius-lg: 1.1rem;
+    --radius-xl: 1.45rem;
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.625rem;
+    --space-4: 0.875rem;
+    --space-5: 1rem;
+    --space-6: 1.25rem;
+    --space-8: 1.625rem;
+    --space-10: 2rem;
+    --space-12: 2.5rem;
+    --duration-fast: 150ms;
+    --duration-base: 220ms;
+    --duration-slow: 320ms;
+    --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+    --sidebar-width: 16rem;
+    --sidebar-collapsed-width: 4.75rem;
+    --header-height: 4.2rem;
+    --z-sidebar: 30;
+    --z-overlay: 60;
+    --z-modal: 70;
+    --z-toast: 80;
+    --color-bg: #07111f;
+    --color-bg-soft: #0c1728;
+    --color-bg-elevated: rgba(12, 24, 40, 0.78);
+    --color-surface: rgba(14, 29, 49, 0.88);
+    --color-surface-strong: rgba(18, 34, 56, 0.94);
+    --color-surface-muted: rgba(14, 24, 40, 0.64);
+    --color-border: rgba(111, 182, 255, 0.18);
+    --color-border-strong: rgba(111, 182, 255, 0.28);
+    --color-border-muted: rgba(255, 255, 255, 0.08);
+    --color-text: #eef4ff;
+    --color-text-soft: rgba(238, 244, 255, 0.74);
+    --color-text-muted: rgba(194, 208, 230, 0.56);
+    --color-heading: #f7fbff;
+    --color-primary: #6fb6ff;
+    --color-primary-strong: #3b8dff;
+    --color-secondary: #3ed1b2;
+    --color-accent: #9d7cff;
+    --color-success: #38d39f;
+    --color-warning: #f6c35d;
+    --color-danger: #ff7b8d;
+    --color-info: #75d8ff;
+    --shadow-soft: 0 24px 64px rgba(0, 0, 0, 0.34);
+    --shadow-card: 0 14px 36px rgba(0, 0, 0, 0.22);
+    --shadow-glow: 0 0 0 1px rgba(111, 182, 255, 0.08), 0 24px 56px rgba(16, 41, 74, 0.28);
+    --shadow-focus: 0 0 0 0.2rem rgba(111, 182, 255, 0.18);
+    --primary-gradient: linear-gradient(135deg, rgba(111, 182, 255, 0.95), rgba(62, 209, 178, 0.9));
+    --accent-gradient: linear-gradient(135deg, rgba(111, 182, 255, 0.2), rgba(157, 124, 255, 0.22));
+    --surface-gradient: linear-gradient(180deg, rgba(19, 35, 57, 0.94), rgba(12, 23, 39, 0.9));
+    --card-bg-color: var(--color-surface);
+    --card-footer-bg-color: rgba(5, 12, 21, 0.34);
+    --background-color: var(--color-bg);
+    --surface-color: var(--color-surface);
+    --text-color: var(--color-text);
+    --text-muted-color: var(--color-text-muted);
+    --primary-color: var(--color-primary);
+    --secondary-color: var(--color-accent);
+    --glow-color: rgba(111, 182, 255, 0.36);
+    --border-color: var(--color-border);
+    --border-color-light: rgba(255, 255, 255, 0.1);
+    --text-primary: var(--color-text);
+    --text-secondary: var(--color-text-soft);
+    --text-muted: var(--color-text-muted);
+    --font-family: var(--font-display);
+    --font-family-body: var(--font-body);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :root {
+        --duration-fast: 0ms;
+        --duration-base: 0ms;
+        --duration-slow: 0ms;
+    }
+}

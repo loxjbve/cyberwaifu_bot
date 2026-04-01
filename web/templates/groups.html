@@ -1,15 +1,15 @@
 {% extends "base.html" %}
 
 {% block title %}群组管理 - CyberWaifu Bot 后台管理系统{% endblock %}
-
+{% block page_id %}groups{% endblock %}
 {% block page_title %}群组管理{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/admin_glass.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/lists.css', v=moment().timestamp() | int) }}">
 {% endblock %}
 
 {% block content %}
-<div class="content-wrapper users-page page-groups">
+<div class="content-wrapper users-page page-groups" data-page="groups">
     <div class="card">
         <div class="card-header">
             <div class="header-container">
@@ -84,7 +84,7 @@
                     </thead>
                     <tbody>
                         {% for group in groups %}
-                        <tr class="table-row-interactive" data-group-id="{{ group.group_id }}">
+                        <tr class="table-row-interactive" data-group-row data-group-id="{{ group.group_id }}">
                             <td>
                                 <div class="user-info">
                                     <div class="user-avatar">
@@ -98,9 +98,9 @@
                                         </div>
                                     </div>
                                     <div class="user-details">
-                                        <span class="user-name">{{ group.group_name or '未命名群组' }}</span>
+                                        <span class="user-name" data-group-field="name">{{ group.group_name or '未命名群组' }}</span>
                                         {% if group.has_profile %}
-                                        <span class="profile-indicator" title="存在用户画像">
+                                        <span class="profile-indicator" title="存在用户画像" data-group-field="has-profile">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
                                         </span>
                                         {% endif %}
@@ -108,38 +108,38 @@
                                 </div>
                             </td>
                             <td>
-                                <div>{{ "{:,}".format(group.call_count or 0) }} 次</div>
+                                <div data-group-field="call-count">{{ "{:,}".format(group.call_count or 0) }} 次</div>
                             </td>
                             <td>
                                 <div class="stacked-badges">
-                                    <span>{{ group.char or '未设置' }}</span>
-                                    <span>{{ group.api or '默认' }}</span>
+                                    <span data-group-field="char">{{ group.char or '未设置' }}</span>
+                                    <span data-group-field="api">{{ group.api or '默认' }}</span>
                                 </div>
                             </td>
                             <td>
                                 <div class="rate-indicator">
                                     <div class="rate-bar">
-                                        <div class="rate-fill" style="width: {{ (group.rate or 0) * 100 }}%"></div>
+                                        <div class="rate-fill" style="width: {{ (group.rate or 0) * 100 }}%" data-group-field="rate-fill"></div>
                                     </div>
-                                    <span class="rate-text">{{ "%.1f"|format((group.rate or 0) * 100) }}%</span>
+                                    <span class="rate-text" data-group-field="rate-text">{{ "%.1f"|format((group.rate or 0) * 100) }}%</span>
                                 </div>
                             </td>
                             <td>
                                 <div class="token-stats">
                                     <div class="token-item">
                                         <span class="token-label">输入</span>
-                                        <span class="token-value text-primary">{{ "{:,}".format(group.input_token or 0)
+                                        <span class="token-value text-primary" data-group-field="input-token">{{ "{:,}".format(group.input_token or 0)
                                             }}</span>
                                     </div>
                                     <div class="token-item">
                                         <span class="token-label">输出</span>
-                                        <span class="token-value text-success">{{ "{:,}".format(group.output_token or 0)
+                                        <span class="token-value text-success" data-group-field="output-token">{{ "{:,}".format(group.output_token or 0)
                                             }}</span>
                                     </div>
                                 </div>
                             </td>
                             <td>
-                                <div class="date-info">
+                                <div class="date-info" data-group-field="updated-at">
                                     <span class="date-value">{{ format_datetime(group.update_time).split(' ')[0]
                                         }}</span>
                                     <span class="date-time text-muted">{{ format_datetime(group.update_time).split('
@@ -149,16 +149,19 @@
                             <td>
                                 <div class="action-buttons">
                                     <button type="button" class="btn-glass view-group-btn" title="查看详情"
+                                        data-action="view-group"
                                         data-group-id="{{ group.group_id }}">
                                         <span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg></span>
                                     </button>
                                     {% if session.user_role == 'admin' %}
                                     <button type="button" class="btn-glass edit-group-btn" title="编辑群组"
+                                        data-action="edit-group"
                                         data-group-id="{{ group.group_id }}">
                                         <span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></span>
                                     </button>
                                     {% endif %}
                                     <button type="button" class="btn-glass view-profile-btn" title="查看用户画像"
+                                       data-action="view-group-profile"
                                        data-group-id="{{ group.group_id }}">
                                         <span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></span>
                                     </button>
@@ -266,7 +269,7 @@
 
 {% block modals %}
 <!-- 群组详情模态框 -->
-<div class="modal-overlay" id="groupDetailModal">
+<div class="modal-overlay" id="groupDetailModal" aria-hidden="true">
     <div class="modal-container modal-large">
         <div class="modal-header">
             <div class="modal-title-section">
@@ -284,7 +287,7 @@
                     <p class="modal-subtitle">查看群组的详细信息和统计数据</p>
                 </div>
             </div>
-            <button class="modal-close" aria-label="关闭">
+            <button class="modal-close" aria-label="关闭" data-modal-close>
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -308,7 +311,7 @@
 
 {% if session.user_role == 'admin' %}
 <!-- 编辑群组模态框 -->
-<div class="modal-overlay" id="groupEditModal">
+<div class="modal-overlay" id="groupEditModal" aria-hidden="true">
     <div class="modal-container modal-large">
         <div class="modal-header">
             <div class="modal-title-section">
@@ -326,7 +329,7 @@
                     <p class="modal-subtitle">修改群组的基本信息和配置</p>
                 </div>
             </div>
-            <button class="modal-close" aria-label="关闭">
+            <button class="modal-close" aria-label="关闭" data-modal-close>
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -400,7 +403,7 @@
             </form>
         </div>
         <div class="modal-footer">
-            <button type="button" id="saveGroupChangesBtn" class="btn-glass btn-primary">
+            <button type="button" id="saveGroupChangesBtn" class="btn-glass btn-primary" data-action="save-group">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
@@ -414,7 +417,7 @@
 </div>
 
 <!-- 用户画像模态框 -->
-<div class="modal-overlay" id="groupProfileModal">
+<div class="modal-overlay" id="groupProfileModal" aria-hidden="true">
     <div class="modal-container modal-large">
         <div class="modal-header">
             <div class="modal-title-section">
@@ -426,7 +429,7 @@
                     <p class="modal-subtitle">查看和编辑群组内用户的画像</p>
                 </div>
             </div>
-            <button class="modal-close" aria-label="关闭">
+            <button class="modal-close" aria-label="关闭" data-modal-close>
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
             </button>
         </div>
@@ -439,7 +442,7 @@
             </div>
         </div>
         <div class="modal-footer">
-            <button type="button" class="btn-glass" id="analyzeGroupProfilesBtn">
+            <button type="button" class="btn-glass" id="analyzeGroupProfilesBtn" data-action="analyze-group-profiles">
                 <span>分析生成画像</span>
             </button>
         </div>
@@ -449,5 +452,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/admin_groups.js') }}"></script>
+<script type="module" src="{{ url_for('static', filename='js/pages/groups.js', v=moment().timestamp() | int) }}"></script>
 {% endblock %}

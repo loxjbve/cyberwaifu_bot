@@ -1,14 +1,16 @@
 {% extends "base.html" %}
 
 {% block title %}分析结果预览 - {{ super() }}{% endblock %}
+{% block page_id %}analysis-preview{% endblock %}
 
 {% block extra_css %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/analysis_preview.css', v=moment().timestamp() | int) }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/analysis.css', v=moment().timestamp() | int) }}">
 {% endblock %}
 
 {% block page_title %}分析结果预览{% endblock %}
 
 {% block content %}
+<div data-page="analysis-preview" data-page-number="{{ page }}" data-has-next="{{ 'true' if has_next else 'false' }}">
 <div class="analysis-grid">
     {% for item in items %}
     <div class="analysis-card"
@@ -31,27 +33,28 @@
     {% endfor %}
 </div>
 
-<div id="loading-indicator" style="display: none; text-align: center; padding: 20px;">
+<div id="loading-indicator" hidden class="loading-state">
     <p>正在加载更多...</p>
+</div>
 </div>
 
 <!-- Modal Structure -->
 {% endblock %}
 
 {% block modals %}
-<div class="modal-overlay" id="analysis-modal">
-    <div class="modal-container">
+<div class="modal-overlay" id="analysis-modal" aria-hidden="true">
+    <div class="modal-container" role="dialog" aria-modal="true" aria-labelledby="analysis-modal-title">
         <div class="modal-header">
             <div class="modal-title-section">
                 <div class="modal-icon">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                 </div>
                 <div class="modal-title-text">
-                    <h3 class="modal-title">分析结果详情</h3>
+                    <h3 class="modal-title" id="analysis-modal-title">分析结果详情</h3>
                     <p class="modal-subtitle">查看完整的图片和分析文本</p>
                 </div>
             </div>
-            <button class="modal-close" aria-label="关闭">
+            <button class="modal-close" aria-label="关闭" data-action="close-analysis-modal">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18"></line>
                     <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -74,6 +77,5 @@
 {% endblock %}
 
 {% block scripts %}
-    {{ super() }}
-    <script src="{{ url_for('static', filename='js/analysis_preview.js', v=moment().timestamp() | int) }}"></script>
+    <script type="module" src="{{ url_for('static', filename='js/pages/analysis-preview.js', v=moment().timestamp() | int) }}"></script>
 {% endblock %}

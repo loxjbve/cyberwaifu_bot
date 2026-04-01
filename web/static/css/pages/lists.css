@@ -1,0 +1,233 @@
+.users-page,
+.dialogs-page,
+.page-conversations,
+.page-groups,
+.page-search,
+.page-config,
+.page-database,
+.page-analysis {
+    gap: var(--space-4);
+}
+
+.users-page .card,
+.page-conversations .card,
+.page-groups .card,
+.page-search .card,
+.page-database .card {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+}
+
+.users-page .card-header,
+.page-conversations .card-header,
+.page-groups .card-header,
+.page-search .card-header {
+    margin-bottom: 0;
+}
+
+.user-details-cell,
+.summary-cell {
+    max-width: 24rem;
+}
+
+.user-details,
+.date-info,
+.summary-preview,
+.collapsible-text {
+    min-width: 0;
+}
+
+.date-info {
+    gap: 0.2rem;
+}
+
+.balance-zero {
+    opacity: 0.55;
+}
+
+.pagination-ellipsis {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2rem;
+    color: var(--color-text-muted);
+}
+
+.user-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+}
+
+.detail-card-full-width {
+    grid-column: 1 / -1;
+}
+
+.stats-grid,
+.config-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.stats-grid .stat-item,
+.config-grid .config-item,
+.profile-body .info-item {
+    padding: 0.75rem 0.85rem;
+}
+
+.profile-item-header,
+.profile-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: 0.68rem 0.82rem;
+    border-bottom: 1px solid var(--color-border-muted);
+}
+
+.profile-item-body,
+.profile-body,
+.profile-footer {
+    padding: 0.85rem;
+}
+
+.profile-body .info-item {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-3);
+    align-items: start;
+}
+
+.profile-json {
+    min-height: 6.5rem;
+    resize: vertical;
+}
+
+.search-placeholder-wrapper {
+    border-radius: var(--radius-lg);
+    border: 1px dashed var(--color-border);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.placeholder-icon {
+    width: 3.2rem;
+    height: 3.2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.95rem;
+    background: rgba(111, 182, 255, 0.12);
+    color: var(--color-primary);
+}
+
+.placeholder-title {
+    font-size: clamp(1.45rem, 3vw, 2rem);
+}
+
+.placeholder-subtitle {
+    max-width: 40rem;
+}
+
+.placeholder-categories {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-4);
+    width: 100%;
+    margin-top: var(--space-3);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--color-border-muted);
+}
+
+.category-item {
+    display: grid;
+    gap: var(--space-2);
+    justify-items: center;
+    min-width: 6.5rem;
+}
+
+.category-icon {
+    color: var(--color-primary);
+}
+
+.data-table .sort-indicator {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 0.35rem;
+    color: var(--color-text-muted);
+}
+
+.search-input-wrapper .search-loading {
+    display: none;
+}
+
+.content-wrapper.users-page .table-container,
+.page-conversations .table-container,
+.page-groups .table-container,
+.page-search .table-container {
+    margin-top: 0;
+}
+
+.search-keyword-display {
+    color: var(--color-primary);
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.collapsible-text .text-preview {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.collapsible-text .text-full {
+    display: none;
+    margin-bottom: 0.65rem;
+}
+
+.collapsible-text.is-expanded .text-preview {
+    display: none;
+}
+
+.collapsible-text.is-expanded .text-full {
+    display: block;
+}
+
+.rate-indicator {
+    min-width: 6.5rem;
+}
+
+.rate-text {
+    color: var(--color-text-soft);
+    font-size: 0.76rem;
+}
+
+.token-stats {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.token-item {
+    gap: 0.5rem;
+}
+
+.token-label {
+    color: var(--color-text-muted);
+    font-size: 0.78rem;
+}
+
+.summary-indicator {
+    color: var(--color-primary);
+}
+
+@media (max-width: 960px) {
+    .user-detail-grid,
+    .stats-grid,
+    .config-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .header-container {
+        align-items: stretch;
+    }
+}

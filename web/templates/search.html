@@ -1,76 +1,15 @@
 {% extends "base.html" %}
 
 {% block title %}全局搜索 - CyberWaifu Bot 后台管理系统{% endblock %}
-
+{% block page_id %}search{% endblock %}
 {% block page_title %}全局搜索{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/admin_glass.css') }}">
-<style>
-    .search-placeholder-wrapper {
-        display: flex;
-        justify-content: center;
-        align-items: flex-start; /* Align to top */
-        text-align: center;
-        padding-top: 10vh; /* Use viewport height for padding */
-        min-height: 60vh;
-        color: #a9b1d6;
-    }
-    .search-placeholder {
-        max-width: 600px;
-    }
-    .placeholder-icon {
-        margin-bottom: 24px;
-    }
-    .placeholder-icon svg {
-        width: 64px;
-        height: 64px;
-        color: #414868;
-    }
-    .placeholder-title {
-        font-size: 2rem;
-        font-weight: 500;
-        color: #c0caf5;
-        margin-bottom: 12px;
-    }
-    .placeholder-subtitle {
-        font-size: 1rem;
-        color: #7aa2f7;
-        margin-bottom: 60px;
-    }
-    .placeholder-categories {
-        display: flex;
-        justify-content: center;
-        gap: 50px;
-        flex-wrap: wrap;
-        padding-top: 30px;
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    .category-item {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 12px;
-    }
-    .category-icon {
-        font-size: 1.75rem;
-        color: #7aa2f7;
-    }
-    .category-text {
-        font-size: 0.9rem;
-        color: #a9b1d6;
-    }
-    .collapsible-text .text-preview {
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        max-width: 100%; /* Ensure it doesn't overflow its container */
-    }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/lists.css', v=moment().timestamp() | int) }}">
 {% endblock %}
 
 {% block content %}
-<div class="content-wrapper users-page">
+<div class="content-wrapper users-page page-search" data-page="search">
     <!-- 搜索表单和结果统计 -->
     <div class="card card-glass">
         <div class="card-header">
@@ -210,7 +149,7 @@
                                             <td>
                                                 <div class="action-buttons">
                                                     <a href="{{ url_for('admin.dialogs', conv_id=dialog.conv_id) }}#msg-{{ dialog.id }}" class="btn-glass btn-icon btn-sm" title="查看完整对话"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></a>
-                                                    <button class="btn-glass btn-icon btn-sm" onclick="copyForwardCommand('{{ dialog.user_id }}', '{{ dialog.msg_id }}')" title="复制转发指令"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>
+                                                    <button class="btn-glass btn-icon btn-sm" data-action="copy-forward-command" data-target-id="{{ dialog.user_id }}" data-msg-id="{{ dialog.msg_id }}" title="复制转发指令"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -294,8 +233,8 @@
                                             <td><span >{{ dialog.msg_id or '-' }}</span></td>
                                             <td>
                                                 <div class="action-buttons">
-                                                    <button class="btn-glass btn-icon btn-sm" onclick="jumpToGroupMessage('{{ dialog.group_id }}', '{{ dialog.msg_id }}')" title="查看群聊记录"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
-                                                    <button class="btn-glass btn-icon btn-sm" onclick="copyForwardCommand('{{ dialog.group_id }}', '{{ dialog.msg_id }}')" title="复制转发指令"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>
+                                                    <button class="btn-glass btn-icon btn-sm" data-action="jump-group-message" data-group-id="{{ dialog.group_id }}" data-msg-id="{{ dialog.msg_id }}" title="查看群聊记录"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
+                                                    <button class="btn-glass btn-icon btn-sm" data-action="copy-forward-command" data-target-id="{{ dialog.group_id }}" data-msg-id="{{ dialog.msg_id }}" title="复制转发指令"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -608,263 +547,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/search.js') }}"></script>
-<script>
-// 自动聚焦搜索框
-$(document).ready(function() {
-    // 自动聚焦搜索框
-    const searchInput = $('#searchQuery');
-    if (searchInput.length > 0 && !searchInput.val()) {
-        searchInput.focus();
-    }
-
-    // 自定义卡片折叠功能
-    $('.collapsible-card .card-header').on('click', function(e) {
-        // 如果点击的是按钮或链接，则不触发折叠
-        if ($(e.target).is('button, a, .btn-glass') || $(e.target).closest('button, a, .btn-glass').length) {
-            return;
-        }
-
-        const card = $(this).closest('.collapsible-card');
-        const body = card.find('.collapse');
-        const icon = $(this).find('.collapse-icon');
-
-        // 使用 slideToggle 实现平滑的展开/收起
-        body.slideToggle(300, function() {
-            // 切换图标的旋转状态
-            if (body.is(':visible')) {
-                icon.css('transform', 'rotate(0deg)');
-                card.addClass('is-expanded');
-            } else {
-                icon.css('transform', 'rotate(-90deg)');
-                card.removeClass('is-expanded');
-            }
-        });
-    });
-
-    // 为折叠按钮添加独立的点击事件
-    $('.collapse-toggle').on('click', function(e) {
-        e.stopPropagation(); // 阻止事件冒泡到 card-header
-        
-        const card = $(this).closest('.collapsible-card');
-        const body = card.find('.collapse');
-        const icon = $(this).find('.collapse-icon');
-
-        body.slideToggle(300, function() {
-            if (body.is(':visible')) {
-                icon.css('transform', 'rotate(0deg)');
-                card.addClass('is-expanded');
-            } else {
-                icon.css('transform', 'rotate(-90deg)');
-                card.removeClass('is-expanded');
-            }
-        });
-    });
-
-    // 初始时，为所有卡片设置正确的图标状态
-    $('.collapsible-card').each(function() {
-        const card = $(this);
-        const body = card.find('.collapse');
-        const icon = card.find('.collapse-icon');
-        if (body.hasClass('show')) {
-            icon.css('transform', 'rotate(0deg)');
-            card.addClass('is-expanded');
-        } else {
-            icon.css('transform', 'rotate(-90deg)');
-            card.removeClass('is-expanded');
-        }
-    });
-
-    // 使用jQuery重写文本展开/收起功能
-    $('.data-table').on('click', '.toggle-text', function() {
-        const button = $(this);
-        const container = button.closest('.collapsible-text');
-        const preview = container.find('.text-preview');
-        const full = container.find('.text-full');
-
-        if (full.is(':hidden')) {
-            preview.hide();
-            full.slideDown(300); // Use slideDown for smooth animation
-            button.text('收起').addClass('expanded');
-        } else {
-            full.slideUp(300, function() { // Use slideUp for smooth animation
-                preview.show();
-            });
-            button.text('展开').removeClass('expanded');
-        }
-    });
-
-    // 生成摘要按钮点击事件
-    $(document).on('click', '.generate-summary-btn', function () {
-        const convId = $(this).data('conv-id');
-        const button = $(this);
-
-        if (button.hasClass('loading')) {
-            return;
-        }
-
-        const originalIcon = button.html();
-        button.prop('disabled', true).addClass('loading').html('<span class="btn-text">...</span>');
-
-        $.ajax({
-            url: '/api/generate_summary',
-            method: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify({ conversation_id: convId }),
-            success: function (response) {
-                if (response.success) {
-                    const summaryCell = button.closest('tr').find('.summary-cell');
-                    const summary = response.summary || '';
-                    const query = $('#searchQuery').val();
-                    
-                    // Function to safely highlight text
-                    function highlight(text, term) {
-                        if (!term) return text;
-                        const regex = new RegExp(term.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'gi');
-                        return text.replace(regex, '<mark>$&</mark>');
-                    }
-
-                    const highlightedSummary = highlight(summary, query);
-                    const previewText = summary.length > 50 ? highlight(summary.substring(0, 50) + '...', query) : highlightedSummary;
-
-                    const newSummaryHtml = `
-                        <div class="collapsible-text">
-                            <div class="text-preview">${previewText}</div>
-                            <div class="text-full" style="display: none;">${highlightedSummary}</div>
-                            <button class="btn-glass btn-text btn-sm toggle-text">展开</button>
-                        </div>
-                    `;
-                    summaryCell.html(newSummaryHtml);
-
-                    if (window.showToast) {
-                        showToast('摘要生成成功！', 'success');
-                    }
-                } else {
-                    if (window.showToast) {
-                        showToast('摘要生成失败：' + (response.message || '未知错误'), 'error');
-                    }
-                }
-            },
-            error: function (xhr, status, error) {
-                console.error('生成摘要请求失败:', error);
-                if (window.showToast) {
-                    showToast('请求失败，请稍后重试', 'error');
-                }
-            },
-            complete: function () {
-                button.prop('disabled', false).removeClass('loading').html(originalIcon);
-            }
-        });
-    });
-});
-
-// 复制转发指令功能
-function copyForwardCommand(targetId, msgId) {
-    const command = `/fw ${targetId} ${msgId}`;
-    
-    // 使用现代的 Clipboard API
-    if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(command).then(function() {
-            showToast('转发指令已复制到剪贴板: ' + command, 'success');
-        }).catch(function(err) {
-            console.error('复制失败:', err);
-            fallbackCopyTextToClipboard(command);
-        });
-    } else {
-        // 降级方案
-        fallbackCopyTextToClipboard(command);
-    }
-}
-
-// 降级复制方案
-function fallbackCopyTextToClipboard(text) {
-    const textArea = document.createElement('textarea');
-    textArea.value = text;
-    textArea.style.position = 'fixed';
-    textArea.style.left = '-999999px';
-    textArea.style.top = '-999999px';
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-    
-    try {
-        const successful = document.execCommand('copy');
-        if (successful) {
-            showToast('转发指令已复制到剪贴板: ' + text, 'success');
-        } else {
-            showToast('复制失败，请手动复制: ' + text, 'error');
-        }
-    } catch (err) {
-        console.error('复制失败:', err);
-        showToast('复制失败，请手动复制: ' + text, 'error');
-    }
-    
-    document.body.removeChild(textArea);
-}
-
-// 显示提示消息
-function showToast(message, type = 'info') {
-    // 创建提示元素
-    const toast = document.createElement('div');
-    toast.className = `alert alert-${type === 'success' ? 'success' : type === 'error' ? 'danger' : 'info'} position-fixed`;
-    toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px; opacity: 0; transition: opacity 0.3s;';
-    toast.innerHTML = `
-        <div class="d-flex align-items-center">
-            <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>
-            <span>${message}</span>
-        </div>
-    `;
-    
-    document.body.appendChild(toast);
-    
-    // 显示动画
-    setTimeout(() => {
-        toast.style.opacity = '1';
-    }, 10);
-    
-    // 自动隐藏
-    setTimeout(() => {
-        toast.style.opacity = '0';
-        setTimeout(() => {
-            if (toast.parentNode) {
-                document.body.removeChild(toast);
-            }
-        }, 300);
-    }, 3000);
-}
-
-// 跳转到群聊消息（获取正确的页码）
-function jumpToGroupMessage(groupId, msgId) {
-    console.log('jumpToGroupMessage called with:', groupId, msgId);
-    
-    // 调用API获取消息所在的页码
-    fetch(`/api/message_page/${groupId}/${msgId}`)
-        .then(response => {
-            console.log('API response status:', response.status);
-            return response.json();
-        })
-        .then(data => {
-            console.log('API response data:', data);
-            if (data.error) {
-                console.error('获取消息页码失败:', data.error);
-                // 如果API失败，回退到原来的方法
-                const targetUrl = `{{ url_for('admin.group_dialogs', group_id='') }}${groupId}#msg-${msgId}`;
-                console.log('Fallback URL:', targetUrl);
-                window.location.href = targetUrl;
-            } else {
-                // 跳转到正确的页面，并在URL中添加目标消息ID
-                const targetUrl = `{{ url_for('admin.group_dialogs', group_id='') }}${groupId}?page=${data.page}#msg-${msgId}`;
-                console.log('Target URL:', targetUrl);
-                window.location.href = targetUrl;
-            }
-        })
-        .catch(error => {
-            console.error('API请求失败:', error);
-            // 如果请求失败，回退到原来的方法
-            const targetUrl = `{{ url_for('admin.group_dialogs', group_id='') }}${groupId}#msg-${msgId}`;
-            console.log('Error fallback URL:', targetUrl);
-            window.location.href = targetUrl;
-        });
-}
-</script>
+<script type="module" src="{{ url_for('static', filename='js/pages/search.js', v=moment().timestamp() | int) }}"></script>
 {% endblock %}

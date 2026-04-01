@@ -4,32 +4,31 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}CyberWaifu Bot 后台管理系统{% endblock %}</title>
-
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v=moment().timestamp() | int) }}">
-    {% block extra_css %}{% endblock %}
-    <meta name="theme-color" content="#00d4ff">
+    <meta name="theme-color" content="#6fb6ff">
     <meta name="description" content="CyberWaifu Bot 后台管理系统 - 管理用户、对话和系统配置">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;600;700&family=Orbitron:wght@500;700&family=Space+Grotesk:wght@400;500;700&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <script>
-      // 立即执行以防止主题闪烁 (FOUC)
-      (function() {
+      (function () {
+        document.documentElement.setAttribute('data-theme', 'dark');
         try {
-          const theme = localStorage.getItem('theme') || 'dark'; // 默认暗黑主题
-          document.documentElement.setAttribute('data-theme', theme);
-        } catch (e) {
-          console.error("无法应用初始主题:", e);
-        }
+          localStorage.setItem('theme', 'dark');
+        } catch (error) {}
       })();
     </script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/core/tokens.css', v=moment().timestamp() | int) }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/core/base.css', v=moment().timestamp() | int) }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/core/layout.css', v=moment().timestamp() | int) }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/ui.css', v=moment().timestamp() | int) }}">
+    {% block extra_css %}{% endblock %}
 </head>
-<body>
-    <!-- 跳过导航链接 - 提高键盘可访问性 -->
+<body data-page="{% block page_id %}default{% endblock %}" {% block body_attrs %}{% endblock %}>
     <a href="#main-content" class="skip-link">跳到主要内容</a>
-
-    <div class="container">
-        <!-- 侧边栏 -->
-        <aside class="sidebar" role="navigation" aria-label="主导航">
+    <div class="app-shell">
+        <div class="shell-overlay" aria-hidden="true"></div>
+        <aside id="app-sidebar" class="sidebar" role="navigation" aria-label="主导航">
             <div class="sidebar-header">
                 <h1 class="sidebar-title">CyberWaifu</h1>
                 <div class="sidebar-subtitle">
@@ -47,89 +46,99 @@
                     {% endif %}
                 </div>
             </div>
+
             <nav>
                 <ul class="nav-menu">
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'admin.index' %}active{% endif %}"
-                            href="{{ url_for('admin.index') }}"
-                            aria-current="{% if request.endpoint == 'admin.index' %}page{% endif %}">
-                            <i data-feather="home" class="nav-link-icon" aria-hidden="true"></i><span class="nav-link-text"> 首页概览</span>
+                           href="{{ url_for('admin.index') }}"
+                           aria-current="{% if request.endpoint == 'admin.index' %}page{% endif %}">
+                            <i data-feather="home" class="nav-link-icon" aria-hidden="true"></i>
+                            <span class="nav-link-text">首页概览</span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'admin.users' %}active{% endif %}"
-                            href="{{ url_for('admin.users') }}"
-                            aria-current="{% if request.endpoint == 'admin.users' %}page{% endif %}">
-                            <i data-feather="users" class="nav-link-icon" aria-hidden="true"></i><span class="nav-link-text"> 用户管理</span>
+                           href="{{ url_for('admin.users') }}"
+                           aria-current="{% if request.endpoint == 'admin.users' %}page{% endif %}">
+                            <i data-feather="users" class="nav-link-icon" aria-hidden="true"></i>
+                            <span class="nav-link-text">用户管理</span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'admin.conversations' %}active{% endif %}"
-                            href="{{ url_for('admin.conversations') }}"
-                            aria-current="{% if request.endpoint == 'admin.conversations' %}page{% endif %}">
-                            <i data-feather="message-square" class="nav-link-icon" aria-hidden="true"></i><span class="nav-link-text"> 对话记录</span>
+                           href="{{ url_for('admin.conversations') }}"
+                           aria-current="{% if request.endpoint == 'admin.conversations' %}page{% endif %}">
+                            <i data-feather="message-square" class="nav-link-icon" aria-hidden="true"></i>
+                            <span class="nav-link-text">对话记录</span>
                         </a>
                     </li>
                     {% if session.user_role == 'admin' %}
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'admin.groups' %}active{% endif %}"
-                            href="{{ url_for('admin.groups') }}"
-                            aria-current="{% if request.endpoint == 'admin.groups' %}page{% endif %}">
-                            <i data-feather="users" class="nav-link-icon" aria-hidden="true"></i><span class="nav-link-text"> 群组管理</span>
+                           href="{{ url_for('admin.groups') }}"
+                           aria-current="{% if request.endpoint == 'admin.groups' %}page{% endif %}">
+                            <i data-feather="layers" class="nav-link-icon" aria-hidden="true"></i>
+                            <span class="nav-link-text">群组管理</span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'admin.search' %}active{% endif %}"
-                            href="{{ url_for('admin.search') }}"
-                            aria-current="{% if request.endpoint == 'admin.search' %}page{% endif %}">
-                            <i data-feather="search" class="nav-link-icon" aria-hidden="true"></i><span class="nav-link-text"> 全局搜索</span>
+                           href="{{ url_for('admin.search') }}"
+                           aria-current="{% if request.endpoint == 'admin.search' %}page{% endif %}">
+                            <i data-feather="search" class="nav-link-icon" aria-hidden="true"></i>
+                            <span class="nav-link-text">全局搜索</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'admin.config_management' %}active{% endif %}"
+                           href="{{ url_for('admin.config_management') }}"
+                           aria-current="{% if request.endpoint == 'admin.config_management' %}page{% endif %}">
+                            <i data-feather="settings" class="nav-link-icon" aria-hidden="true"></i>
+                            <span class="nav-link-text">配置管理</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'admin.database_viewer' %}active{% endif %}"
+                           href="{{ url_for('admin.database_viewer') }}"
+                           aria-current="{% if request.endpoint == 'admin.database_viewer' %}page{% endif %}">
+                            <i data-feather="database" class="nav-link-icon" aria-hidden="true"></i>
+                            <span class="nav-link-text">数据库查看器</span>
                         </a>
                     </li>
                     {% endif %}
-                    {% if session.user_role == 'admin' %}
                     <li class="nav-item">
-                        <a class="nav-link {{ 'active' if request.endpoint == 'admin.config_management' else '' }}"
-                            href="{{ url_for('admin.config_management') }}"
-                            aria-current="{% if request.endpoint == 'admin.config_management' %}page{% endif %}">
-                            <i data-feather="settings" class="nav-link-icon" aria-hidden="true"></i><span class="nav-link-text"> 配置管理</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ 'active' if request.endpoint == 'admin.database_viewer' else '' }}"
-                            href="{{ url_for('admin.database_viewer') }}"
-                            aria-current="{% if request.endpoint == 'admin.database_viewer' %}page{% endif %}">
-                            <i data-feather="database" class="nav-link-icon" aria-hidden="true"></i><span class="nav-link-text"> 数据库查看器</span>
-                        </a>
-                    </li>
-                    {% endif %}
-                    <li class="nav-item">
-                        <a class="nav-link {{ 'active' if request.endpoint == 'admin.analysis_preview' else '' }}"
-                            href="{{ url_for('admin.analysis_preview') }}"
-                            aria-current="{% if request.endpoint == 'admin.analysis_preview' %}page{% endif %}">
-                            <i data-feather="eye" class="nav-link-icon" aria-hidden="true"></i><span class="nav-link-text"> 分析结果预览</span>
+                        <a class="nav-link {% if request.endpoint == 'admin.analysis_preview' %}active{% endif %}"
+                           href="{{ url_for('admin.analysis_preview') }}"
+                           aria-current="{% if request.endpoint == 'admin.analysis_preview' %}page{% endif %}">
+                            <i data-feather="image" class="nav-link-icon" aria-hidden="true"></i>
+                            <span class="nav-link-text">分析结果预览</span>
                         </a>
                     </li>
                 </ul>
             </nav>
+
             <div class="logout-link">
                 <a class="nav-link" href="{{ url_for('auth.logout') }}">
-                    <i data-feather="log-out" class="nav-link-icon" aria-hidden="true"></i><span class="nav-link-text"> 退出登录</span>
+                    <i data-feather="log-out" class="nav-link-icon" aria-hidden="true"></i>
+                    <span class="nav-link-text">退出登录</span>
                 </a>
             </div>
-            <button class="sidebar-toggle d-md-none" aria-label="切换菜单" aria-expanded="false" aria-controls="sidebar">
-                <span></span>
+
+            <button class="sidebar-toggle" aria-label="切换菜单" aria-controls="app-sidebar" aria-expanded="false">
+                <i data-feather="menu"></i>
             </button>
         </aside>
 
-        <!-- 主内容区域 -->
-        <main id="main-content" class="main-content" tabindex="-1" style="margin-top: 8px;">
+        <main id="main-content" class="main-content" tabindex="-1">
             <header class="page-header">
-                <h1 class="page-title">{% block page_title %}后台管理{% endblock %}</h1>
-                <div class="d-flex align-items-center">
-                    <div id="digital-clock" class="current-time mr-md" aria-live="polite">&nbsp;</div>
-                    <button id="theme-toggle" class="btn btn-icon" aria-label="切换主题模式" aria-pressed="false">
-                        <i data-feather="sun" class="theme-icon" aria-hidden="true"></i>
-                    </button>
+                <div>
+                    <h1 class="page-title">{% block page_title %}后台管理{% endblock %}</h1>
+                    {% block page_subtitle %}{% endblock %}
+                </div>
+                <div class="page-header-meta">
+                    <div id="digital-clock" class="current-time" aria-live="polite"></div>
+                    <div class="page-actions">{% block page_actions %}{% endblock %}</div>
                 </div>
             </header>
 
@@ -137,13 +146,10 @@
         </main>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/locale/zh-cn.js"></script>
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
-    {% block scripts %}{% endblock %}
-
     {% block modals %}{% endblock %}
+
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <script type="module" src="{{ url_for('static', filename='js/app.js', v=moment().timestamp() | int) }}"></script>
+    {% block scripts %}{% endblock %}
 </body>
 </html>

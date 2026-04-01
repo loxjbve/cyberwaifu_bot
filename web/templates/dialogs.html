@@ -1,12 +1,11 @@
 {% extends "base.html" %}
-{% set page_has_custom_scripts = true %}
 
 {% block title %}对话详情 - CyberWaifu Bot 后台管理系统{% endblock %}
-
+{% block page_id %}dialogs{% endblock %}
 {% block page_title %}对话详情{% endblock %}
 
 {% block content %}
-<div class="content-wrapper dialogs-page">
+<div class="content-wrapper dialogs-page" data-page="dialogs" data-conversation-id="{{ conversation.conv_id }}">
     <!-- 对话信息卡片 (可折叠) -->
     <div class="glass-card collapsible-card collapsed" id="conversationDetailsCard">
         <div class="card-header collapsible-header">
@@ -221,10 +220,9 @@
     </div>
     {% endif %}
 </div>
-</div>
 
 <!-- 消息详情模态框 -->
-<div class="modal-overlay" id="messageDetailModal" aria-hidden="true" style="display: none; visibility: hidden;">
+<div class="modal-overlay" id="messageDetailModal" aria-hidden="true">
     <div class="modal-container" role="dialog" aria-labelledby="messageDetailModalLabel" aria-modal="true">
         <div class="modal-header">
             <h2 class="modal-title" id="messageDetailModalLabel">
@@ -288,7 +286,7 @@
 
 {% if session.user_role == 'admin' %}
 <!-- 编辑消息模态框 -->
-<div class="modal-overlay" id="editMessageModal" aria-hidden="true" style="display: none; visibility: hidden;">
+<div class="modal-overlay" id="editMessageModal" aria-hidden="true">
     <div class="modal-container" role="dialog" aria-labelledby="editMessageModalLabel" aria-modal="true">
         <div class="modal-header">
             <h2 class="modal-title" id="editMessageModalLabel">
@@ -326,17 +324,10 @@
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/admin_glass.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/lists.css', v=moment().timestamp() | int) }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/conversation.css', v=moment().timestamp() | int) }}">
 {% endblock %}
 
 {% block scripts %}
-<script>
-    // 安全地将后端数据传递给前端
-    window.conversationData = {{ conversation | tojson | safe }};
-    window.dialogsData = {{ dialogs | tojson | safe }};
-    window.dialogsUrl = "{{ request.url_root.rstrip('/') }}";
-</script>
-<script src="{{ url_for('static', filename='js/dialogs.js') }}" defer></script>
-<!-- The conflicting modal-dialog.js script has been removed to prevent issues. -->
-<!-- 移除冲突的 modal-dialog.js 脚本 -->
+<script type="module" src="{{ url_for('static', filename='js/pages/dialogs.js', v=moment().timestamp() | int) }}"></script>
 {% endblock %}

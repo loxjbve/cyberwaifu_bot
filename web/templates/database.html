@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 
 {% block title %}数据库查看器{% endblock %}
-
+{% block page_id %}database{% endblock %}
 {% block page_title %}数据库查看器{% endblock %}
 
 {% block content %}
-<div class="db-container">
+<div class="db-container" data-page="database">
     <div id="sidebar" class="glass-card p-2">
         <ul id="table-list" class="nav nav-pills flex-column">
             {% for name in table_names %}
@@ -113,7 +113,7 @@
             <div class="modal-title-section">
                 <h3 class="modal-title" id="cellDataModalTitle">单元格内容</h3>
             </div>
-            <button class="modal-close" aria-label="关闭">
+            <button class="modal-close" aria-label="关闭" data-action="close-cell-modal">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18"></line>
                     <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -129,169 +129,9 @@
 
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/admin_glass.css') }}">
-<style>
-    .db-container {
-        display: grid;
-        grid-template-columns: 220px 1fr;
-        gap: 1rem;
-        height: calc(100vh - 160px);
-    }
-    #sidebar, #main-content {
-        overflow: auto;
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-    }
-    #table-list { list-style: none; padding-left: 0; }
-    #table-list .nav-link { padding: 0.35rem 0.75rem; font-size: 0.85rem; margin-bottom: 4px; }
-    .main-content-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-    .data-search-form { width: 300px; }
-    .table-responsive { flex-grow: 1; overflow: auto; }
-    
-    /* Excel-like Table Style */
-    .table.excel-style { width: 100%; table-layout: fixed; border-collapse: collapse; }
-    .table.excel-style th, .table.excel-style td {
-        border: 1px solid rgba(255, 255, 255, 0.4);
-        padding: 0.4rem;
-        vertical-align: top;
-    }
-    .table.excel-style td.expandable-cell { cursor: pointer; }
-    .cell-content-wrapper { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .table.excel-style tbody tr:nth-child(even) { background-color: rgba(0, 0, 0, 0.1); }
-    .table.excel-style th { background-color: rgba(0,0,0,0.3); }
-
-    /* Pagination - Compact Style */
-    .pagination-wrapper { flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; }
-    .pagination-text { font-size: 0.8rem; }
-    .pagination-controls { display: flex; align-items: center; }
-    .pagination-btn, .pagination-number { padding: 0.2rem 0.5rem; font-size: 0.8rem; min-width: 30px; height: 30px; display: inline-flex; justify-content: center; align-items: center; }
-    .pagination-btn svg { width: 14px; height: 14px; }
-    .pagination-btn span { display: none; }
-    .pagination-ellipsis { font-size: 0.8rem; padding: 0.2rem 0.3rem; }
-
-    /* Modal Styles (Final, Robust Version) */
-    .modal-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: transparent; /* 移除遮罩背景色 */
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 1050;
-        opacity: 0;
-        visibility: hidden;
-        pointer-events: none; /* 默认不捕获事件，防止穿透 */
-        transition: opacity 0.2s ease, visibility 0.2s;
-    }
-    .modal-overlay.visible {
-        opacity: 1;
-        visibility: visible;
-        pointer-events: auto; /* 可见时捕获事件以关闭 */
-    }
-    .modal-container {
-        background: rgba(30, 30, 40, 0.85);
-        backdrop-filter: blur(12px); /* 自身毛玻璃效果 */
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 12px;
-        width: 90%;
-        max-width: 600px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-        transform: scale(0.95);
-        transition: transform 0.2s ease;
-        pointer-events: auto; /* 确保模态框自身总是可交互的 */
-    }
-    .modal-overlay.visible .modal-container {
-        transform: scale(1);
-    }
-    .modal-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 1rem 1.5rem;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    .modal-title { margin: 0; font-size: 1.2rem; }
-    .modal-close { background: none; border: none; color: #fff; cursor: pointer; opacity: 0.7; }
-    .modal-close:hover { opacity: 1; }
-    .modal-body { padding: 1.5rem; }
-    .modal-pre-content {
-        background-color: rgba(0,0,0,0.2);
-        padding: 1rem;
-        border-radius: 6px;
-        white-space: pre-wrap;
-        word-break: break-all;
-        max-height: 60vh;
-        overflow-y: auto;
-    }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/database.css', v=moment().timestamp() | int) }}">
 {% endblock %}
 
 {% block scripts %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Sidebar collapse logic
-    const sidebar = document.querySelector('.sidebar');
-    const body = document.body;
-    if (sidebar && body && window.innerWidth > 992) {
-        sidebar.classList.add('collapsed');
-        body.classList.add('sidebar-collapsed');
-    }
-
-    // Modal logic
-    const modal = document.getElementById('cellDataModal');
-    const modalCloseBtn = modal.querySelector('.modal-close');
-    const modalTitle = document.getElementById('cellDataModalTitle');
-    const modalContent = document.getElementById('cellDataModalContent');
-
-    function showModal(title, content) {
-        modalTitle.textContent = title;
-        modalContent.textContent = content;
-        modal.classList.add('visible');
-    }
-
-    function hideModal() {
-        modal.classList.remove('visible');
-    }
-
-    // Event delegation for opening the modal
-    const table = document.querySelector('.table.excel-style');
-    if (table) {
-        const headers = Array.from(table.querySelectorAll('thead th'));
-        table.addEventListener('click', function(e) {
-            const cell = e.target.closest('.expandable-cell');
-            if (!cell) return;
-
-            const contentWrapper = cell.querySelector('.cell-content-wrapper');
-            if (contentWrapper && contentWrapper.offsetWidth < contentWrapper.scrollWidth) {
-                const cellIndex = cell.cellIndex;
-                const headerText = headers[cellIndex] ? headers[cellIndex].textContent : '单元格内容';
-                const fullText = cell.dataset.fullText;
-                showModal(headerText, fullText);
-            }
-        });
-    }
-
-    // Standard and robust close modal events
-    // 1. Close by clicking the close button
-    modalCloseBtn.addEventListener('click', hideModal);
-
-    // 2. Close by clicking the overlay background
-    modal.addEventListener('click', function(e) {
-        if (e.target === modal) { // Only if the click is on the overlay itself
-            hideModal();
-        }
-    });
-
-    // 3. Close by pressing the Escape key
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape' && modal.classList.contains('visible')) {
-            hideModal();
-        }
-    });
-});
-</script>
+<script type="module" src="{{ url_for('static', filename='js/pages/database.js', v=moment().timestamp() | int) }}"></script>
 {% endblock %}

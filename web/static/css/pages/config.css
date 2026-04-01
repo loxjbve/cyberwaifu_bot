@@ -1,0 +1,252 @@
+.config-layout {
+    display: grid;
+    grid-template-columns: minmax(14rem, 18rem) 1fr;
+    gap: var(--space-4);
+    min-height: calc(100vh - 12rem);
+}
+
+.config-sidebar,
+.config-editor-area {
+    overflow: hidden;
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--color-border);
+    background: var(--surface-gradient);
+    box-shadow: var(--shadow-glow);
+}
+
+.config-sidebar {
+    display: grid;
+    align-content: start;
+    gap: var(--space-3);
+    padding: var(--space-4);
+}
+
+.config-editor-area {
+    display: flex;
+    flex-direction: column;
+}
+
+.editor-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    border-bottom: 1px solid var(--color-border-muted);
+}
+
+.editor-toolbar .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+}
+
+.editor-main {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+    padding: var(--space-4);
+}
+
+.editor-tabs {
+    display: flex;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+}
+
+.tab-btn {
+    padding: 0.52rem 0.8rem;
+    border-radius: 999px;
+    border: 1px solid var(--color-border);
+    color: var(--color-text-soft);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.tab-btn.active {
+    color: var(--color-heading);
+    background: rgba(111, 182, 255, 0.14);
+}
+
+.editor-content,
+.editor-pane {
+    flex: 1;
+    min-height: 0;
+}
+
+.editor-pane {
+    display: none;
+}
+
+.editor-pane.active {
+    display: block;
+}
+
+.CodeMirror,
+.jsoneditor-container,
+.jsoneditor {
+    height: 100% !important;
+    min-height: 22rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border);
+    overflow: hidden;
+}
+
+.file-list {
+    display: grid;
+    gap: var(--space-2);
+    min-height: 0;
+    overflow: auto;
+}
+
+.file-list-section {
+    display: grid;
+    gap: var(--space-2);
+}
+
+.file-list .category-header {
+    padding: 0.35rem 0;
+    color: var(--color-primary);
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.file-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    padding: 0.62rem 0.72rem;
+    border-radius: var(--radius-md);
+    border: 1px solid transparent;
+    color: var(--color-text-soft);
+    background: rgba(255, 255, 255, 0.03);
+    text-align: left;
+    font: inherit;
+}
+
+.file-item.active,
+.file-item:hover {
+    color: var(--color-heading);
+    border-color: var(--color-border);
+    background: rgba(111, 182, 255, 0.08);
+}
+
+.file-item.error {
+    border-color: rgba(255, 123, 141, 0.2);
+}
+
+.file-item:disabled {
+    cursor: not-allowed;
+    opacity: 0.8;
+}
+
+.file-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.7rem;
+    height: 1.7rem;
+    padding: 0 0.35rem;
+    border-radius: 0.6rem;
+    background: rgba(111, 182, 255, 0.12);
+    color: var(--color-primary);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.file-item.error .file-icon {
+    background: rgba(255, 123, 141, 0.16);
+    color: var(--color-danger);
+}
+
+.file-item-copy {
+    display: grid;
+    gap: 0.1rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.file-item-name {
+    color: var(--color-heading);
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.file-item-meta,
+.empty-file-category {
+    color: var(--color-text-muted);
+    font-size: 0.72rem;
+}
+
+.file-item-status {
+    color: var(--color-danger);
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.btn-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+.modal-form-grid {
+    display: grid;
+    gap: var(--space-3);
+}
+
+.jsoneditor,
+.jsoneditor-menu,
+.jsoneditor-tree,
+.jsoneditor-search,
+.jsoneditor-statusbar,
+table.jsoneditor-tree td,
+table.jsoneditor-tree th,
+table.jsoneditor-tree tr {
+    border-color: var(--color-border) !important;
+}
+
+.jsoneditor {
+    background: rgba(7, 14, 23, 0.7) !important;
+}
+
+.jsoneditor-menu {
+    background: rgba(10, 22, 36, 0.98) !important;
+}
+
+.jsoneditor-menu > button,
+.jsoneditor-menu > .jsoneditor-modes > button,
+div.jsoneditor-field,
+div.jsoneditor-value,
+div.jsoneditor-tree button {
+    color: var(--color-heading) !important;
+}
+
+.jsoneditor-tree,
+.jsoneditor-search,
+.jsoneditor-statusbar {
+    background: rgba(7, 14, 23, 0.9) !important;
+    color: var(--color-text) !important;
+}
+
+div.jsoneditor-field.jsoneditor-readonly,
+div.jsoneditor-value.jsoneditor-readonly {
+    color: var(--color-text-muted) !important;
+}
+
+div.jsoneditor-field[contenteditable='true']:focus,
+div.jsoneditor-value[contenteditable='true']:focus,
+.jsoneditor-selected {
+    background: rgba(111, 182, 255, 0.18) !important;
+}
+
+@media (max-width: 960px) {
+    .config-layout {
+        grid-template-columns: 1fr;
+    }
+}
