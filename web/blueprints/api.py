@@ -5,8 +5,9 @@ import time
 from datetime import datetime
 from flask import Blueprint, jsonify, request, Response, send_from_directory, current_app, session
 from typing import Union
-from utils import db_utils as db
 from agent.llm_functions import generate_summary
+from bot_core.data_repository import GroupsRepository
+from utils import db_utils as db
 from web.factory import admin_required, viewer_required, get_admin_ids, app_logger
 from web.factory import viewer_or_admin_required
 
@@ -46,77 +47,47 @@ def export_group_dialogs(group_id):
         group_id = int(group_id)
     except ValueError:
         return jsonify({"error": "Invalid group ID"}), 400
-    group_data = db.query_db("SELECT * FROM groups WHERE group_id = ?", (group_id,))
-    if not group_data:
-        return jsonify({"error": "群组不存在"}), 404
-    group_columns = [
-        "group_id",
-        "members_list",
-        "call_count",
-        "keywords",
-        "active",
-        "api",
-        "char",
-        "preset",
-        "input_token",
-        "group_name",
-        "update_time",
-        "rate",
-        "output_token",
-        "disabled_topics",
-    ]
-    group = {group_columns[i]: group_data[0][i] for i in range(len(group_columns))}
-    dialogs_data = db.query_db(
-        "SELECT * FROM group_dialogs WHERE group_id = ? ORDER BY create_at ASC",
-        (group_id,),
-    )
+
+    export_result = GroupsRepository.group_dialog_export_data_get(group_id)
+    if not export_result["success"] or not export_result.get("data"):
+        return jsonify({"error": export_result.get("error", "导出失败")}), 404
+
+    export_data = export_result["data"]
+    group = export_data.get("group") or {}
+    dialogs_data = export_data.get("dialogs") or []
     conversations = []
-    if dialogs_data:
-        dialog_columns = [
-            "group_id",
-            "msg_user",
-            "trigger_type",
-            "msg_text",
-            "msg_user_name",
-            "msg_id",
-            "raw_response",
-            "processed_response",
-            "delete_mark",
-            "group_name",
-            "create_at",
-        ]
-        for row in dialogs_data:
-            dialog_dict = {
-                dialog_columns[i]: row[i] for i in range(len(dialog_columns))
-            }
-            conversation = {
-                "dialog_id": dialog_dict["msg_id"],
-                "user_message": {
-                    "content": dialog_dict["msg_text"],
-                    "user_name": dialog_dict["msg_user_name"],
-                    "user_id": dialog_dict["msg_user"],
-                    "trigger_type": dialog_dict["trigger_type"],
-                    "time": dialog_dict["create_at"],
-                },
-                "ai_response": {
-                    "processed_response": dialog_dict["processed_response"],
-                    "raw_response": dialog_dict["raw_response"],
-                    "time": dialog_dict["create_at"],
-                },
-            }
-            conversations.append(conversation)
-    export_data = {
+    for dialog_dict in dialogs_data:
+        conversation = {
+            "dialog_id": dialog_dict["msg_id"],
+            "user_message": {
+                "content": dialog_dict["msg_text"],
+                "user_name": dialog_dict["msg_user_name"],
+                "user_id": dialog_dict["msg_user"],
+                "trigger_type": dialog_dict["trigger_type"],
+                "time": dialog_dict["create_at"],
+            },
+            "ai_response": {
+                "processed_response": dialog_dict["processed_response"],
+                "raw_response": dialog_dict["raw_response"],
+                "time": dialog_dict["create_at"],
+            },
+        }
+        conversations.append(conversation)
+
+    response_payload = {
+        "success": True,
+        **export_data,
         "group_info": {
-            "group_id": group["group_id"],
-            "group_name": group["group_name"] or "未命名群组",
-            "character": group["char"] or "未设置",
-            "preset": group["preset"] or "默认",
-            "export_time": datetime.now().isoformat(),
+            "group_id": group.get("group_id", group_id),
+            "group_name": export_data["export_meta"].get("group_name") or "未命名群组",
+            "character": group.get("char") or "未设置",
+            "preset": group.get("preset") or "默认",
+            "export_time": export_data["export_meta"]["exported_at"],
             "total_conversations": len(conversations),
         },
         "conversations": conversations,
     }
-    return jsonify(export_data)
+    return jsonify(response_payload)
 
 
 

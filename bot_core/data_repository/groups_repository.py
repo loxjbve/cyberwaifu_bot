@@ -15,8 +15,15 @@ logger = logging.getLogger(__name__)
 
 
 class GroupsRepository:
-    """群组相关表相关的数据库操作"""
+    """Repository for groups and group dialog records."""
 
+    @staticmethod
+    def _row_to_dict(row: Tuple[Any, ...], columns: List[str]) -> dict:
+        """Convert a database row into a JSON-serializable dictionary."""
+        return {
+            columns[i]: row[i]
+            for i in range(min(len(row), len(columns)))
+        }
     @staticmethod
     def group_check_update(group_id: int) -> dict:
         """
@@ -442,6 +449,111 @@ class GroupsRepository:
             return {
                 "success": False,
                 "data": [],
+                "error": str(e)
+            }
+
+    @staticmethod
+    def group_dialog_export_data_get(group_id: int) -> dict:
+        """
+        Export full stored group chat history as a JSON-ready payload.
+
+        Args:
+            group_id: 群组ID
+
+        Returns:
+            dict: {
+                "success": bool,
+                "data": Optional[dict],
+                "error": str
+            }
+        """
+        try:
+            group_columns = [
+                "group_id",
+                "members_list",
+                "call_count",
+                "keywords",
+                "active",
+                "api",
+                "char",
+                "preset",
+                "input_token",
+                "group_name",
+                "update_time",
+                "rate",
+                "output_token",
+                "disabled_topics",
+            ]
+            dialog_columns = [
+                "group_id",
+                "msg_user",
+                "trigger_type",
+                "msg_text",
+                "msg_user_name",
+                "msg_id",
+                "raw_response",
+                "processed_response",
+                "delete_mark",
+                "group_name",
+                "create_at",
+            ]
+
+            group_rows = query_db(
+                "SELECT * FROM groups WHERE group_id = ? LIMIT 1",
+                (group_id,),
+            )
+            dialog_rows = query_db(
+                """
+                SELECT * FROM group_dialogs
+                WHERE group_id = ?
+                ORDER BY create_at ASC, msg_id ASC
+                """,
+                (group_id,),
+            )
+
+            if not group_rows and not dialog_rows:
+                return {
+                    "success": False,
+                    "data": None,
+                    "error": "群组不存在或没有可导出的群聊记录",
+                }
+
+            group_record = (
+                GroupsRepository._row_to_dict(group_rows[0], group_columns)
+                if group_rows
+                else {"group_id": group_id}
+            )
+            dialogs = [
+                GroupsRepository._row_to_dict(row, dialog_columns)
+                for row in (dialog_rows or [])
+            ]
+            group_name = (
+                group_record.get("group_name")
+                or (dialogs[0].get("group_name") if dialogs else "")
+                or ""
+            )
+
+            return {
+                "success": True,
+                "data": {
+                    "export_meta": {
+                        "export_type": "group_dialogs",
+                        "schema_version": 1,
+                        "exported_at": datetime.datetime.now().isoformat(),
+                        "group_id": group_id,
+                        "group_name": group_name,
+                        "has_group_record": bool(group_rows),
+                        "dialog_count": len(dialogs),
+                    },
+                    "group": group_record,
+                    "dialogs": dialogs,
+                }
+            }
+        except Exception as e:
+            logger.error(f"导出群聊记录失败: {e}")
+            return {
+                "success": False,
+                "data": None,
                 "error": str(e)
             }
 

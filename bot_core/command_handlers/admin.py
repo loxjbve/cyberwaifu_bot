@@ -1,16 +1,21 @@
-from telegram import Update
-from telegram.error import TelegramError
-from telegram.ext import ContextTypes
+import io
+import json
 import logging
 import os
 import sys
+from datetime import datetime
+
+from telegram import InputFile, Update
+from telegram.error import TelegramError
+from telegram.ext import ContextTypes
+
 from agent.llm_functions import run_agent_session
-import bot_core.services.messages as messages
 from agent.tools_registry import DatabaseSuperToolRegistry
-from bot_core.data_repository import UsersRepository
-from utils.config_utils import get_config
-from utils.db_utils import manual_wal_checkpoint, close_all_connections
 from bot_core.command_handlers.base import BaseCommand, CommandMeta
+from bot_core.data_repository import GroupsRepository, UsersRepository
+import bot_core.services.messages as messages
+from utils.config_utils import get_config
+from utils.db_utils import close_all_connections, manual_wal_checkpoint
 from utils.logging_utils import setup_logging
 
 setup_logging()
@@ -164,6 +169,75 @@ class DatabaseCommand(BaseCommand):
             agent_session=agent_session,
             character_name="cyberwaifu"
         )
+
+
+class ExportCommand(BaseCommand):
+    meta = CommandMeta(
+        name='export_group_dialogs',
+        command_type='admin',
+        trigger='export',
+        menu_text='导出群聊记录',
+        show_in_menu=False,
+        menu_weight=20,
+        bot_admin_required=True,
+    )
+
+    async def handle(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        if not update.message:
+            return
+
+        args = context.args or []
+        if len(args) != 1:
+            await update.message.reply_text(
+                "用法：/export <群聊id>\n例如：/export -1001234567890"
+            )
+            return
+
+        try:
+            group_id = int(args[0])
+        except ValueError:
+            await update.message.reply_text("群聊id必须是有效整数，例如 -1001234567890。")
+            return
+
+        export_result = GroupsRepository.group_dialog_export_data_get(group_id)
+        if not export_result["success"] or not export_result.get("data"):
+            await update.message.reply_text(
+                f"导出失败：{export_result.get('error', '未知错误')}"
+            )
+            return
+
+        export_data = export_result["data"]
+        export_text = json.dumps(export_data, ensure_ascii=False, indent=2, default=str)
+        export_bytes = export_text.encode("utf-8")
+
+        # Telegram 普通文档发送有大小限制，超限时给出明确错误。
+        max_document_size = 49 * 1024 * 1024
+        if len(export_bytes) > max_document_size:
+            export_size_mb = len(export_bytes) / 1024 / 1024
+            await update.message.reply_text(
+                f"导出失败：生成的 JSON 约 {export_size_mb:.2f} MB，超过 Telegram 文档发送限制。"
+            )
+            return
+
+        safe_group_id = str(group_id).replace("-", "neg")
+        filename = f"group_{safe_group_id}_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        group_name = export_data["export_meta"].get("group_name") or str(group_id)
+        dialog_count = export_data["export_meta"].get("dialog_count", 0)
+
+        document_buffer = io.BytesIO(export_bytes)
+        document_buffer.seek(0)
+
+        await update.message.reply_document(
+            document=InputFile(document_buffer, filename=filename),
+            caption=f"群聊 {group_name} 导出完成，共 {dialog_count} 条记录。",
+        )
+        logger.info(
+            "管理员 %s 导出了群聊 %s，共 %s 条记录",
+            update.effective_user.id if update.effective_user else "unknown",
+            group_id,
+            dialog_count,
+        )
+
 
 class ForwardCommand(BaseCommand):
     meta = CommandMeta(

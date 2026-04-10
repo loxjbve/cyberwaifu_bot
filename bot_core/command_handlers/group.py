@@ -5,7 +5,6 @@ import logging
 from PIL import Image
 import bot_core.services.utils.usage as fm
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.helpers import escape_markdown
 from telegram.ext import ContextTypes
 
 from bot_core.callback_handlers.inline import Inline
@@ -18,13 +17,6 @@ from bot_core.services.messages import handle_agent_session
 from agent.llm_functions import run_agent_session
 from utils.config_utils import get_config
 
-
-from plugins.trading_services.order_service import order_service
-from plugins.trading_services.account_service import account_service
-from plugins.trading_services.position_service import position_service
-from plugins.trading_services.analysis_service import analysis_service
-from plugins.trading_services.loan_service import loan_service
-from plugins.trading_services.price_service import price_service
 class RemakeCommand(BaseCommand):
     meta = CommandMeta(
         name="remake",
@@ -297,57 +289,87 @@ class CryptoCommand(BaseCommand):
     提供相应的市场分析和交易建议。支持通过工具查询实时市场数据，并由AI进行综合分析。
 
     命令格式:
-        menu_weight=20,
-        bot_admin_required=True,
+        /cc [long|short] [分析内容]
+    """
+
+    meta = CommandMeta(
+        name="crypto_group",
+        command_type="group",
+        trigger="cc",
+        menu_text="群聊币圈分析",
+        show_in_menu=True,
+        menu_weight=22,
     )
 
     async def handle(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """
-        处理 /forward 或 /fw 命令，将指定消息转发到当前聊天。
-        命令格式: /forward <源聊天ID> <消息ID>
+        处理群聊 /cc 命令。
         """
-        # context.args 会自动解析命令后的参数列表
-        # 例如，如果用户输入 "/fw -1001234567890 123"
-        # context.args 将是 ['-1001234567890', '123']
-        args = context.args
-        # 1. 参数校验
-        if not args or len(args) != 2:
-            await update.message.reply_text(
-                "❌ 用法错误！请提供源聊天ID和消息ID。\n"
-                "或简写：`/fw <源聊天ID> <消息ID>`\n\n"
-                "💡 源聊天ID可以是用户ID、群组ID或频道ID（需要有访问权限）。\n"
-                "注意：频道ID通常以 `-100` 开头。",
-                parse_mode="Markdown",
-            )
+        if not update.message:
             return
-        try:
-            # 尝试将参数转换为整数
-            source_chat_id = int(args[0])
-            message_id = int(args[1])
-        except ValueError:
-            await update.message.reply_text(
-                "❌ 无效的ID！源聊天ID和消息ID都必须是有效的数字。\n"
-                "示例：`/forward -1001234567890 123`",
-                parse_mode="Markdown",
-            )
-            return
-        # 2. 获取目标聊天ID (通常是用户发起命令的聊天)
-        target_chat_id = update.effective_chat.id
-        # 3. 执行消息转发操作
-        try:
-            await context.bot.forward_message(
-                chat_id=target_chat_id,
-                from_chat_id=source_chat_id,
-                message_id=message_id,
-            )
-            # await update.message.reply_text("✅ 消息已成功转发！")
 
-        except Exception as e:
-            # 捕获其他非 Telegram API 的意外错误
-            escaped_error = escape_markdown(str(e), version=1)
+        if not context.args:
             await update.message.reply_text(
-                f"❌ 发生错误：`{type(e).__name__}: {escaped_error}`", parse_mode="Markdown"
+                "请在 `/cc` 命令后提供具体内容，例如：`/cc 分析下大饼` 或 `/cc long 分析下大饼`",
+                parse_mode="Markdown",
             )
+            return
+
+        args = list(context.args)
+        bias_type = "neutral"
+        if args and args[0].lower() in ["long", "short"]:
+            bias_type = args.pop(0).lower()
+
+        if not args:
+            await update.message.reply_text(
+                f"请在 `/cc {bias_type}` 后提供具体分析内容。",
+                parse_mode="Markdown",
+            )
+            return
+
+        user_input = " ".join(args)
+
+        context.application.create_task(
+            self.process_tool_request(update, user_input, bias_type),
+            update=update,
+        )
+        logger.debug("已创建后台任务处理 /cc 请求")
+
+    async def process_tool_request(
+        self,
+        update: Update,
+        user_input: str,
+        bias_type: str = "neutral",
+    ) -> None:
+        bias_prompt = ""
+        if bias_type == "long":
+            bias_prompt = "\n\n**脆脆鲨是一个激进的多头，你需要倾向于给出做多建议。在分析市场数据时，更多关注利好因素和上涨潜力，适当淡化风险因素。鼓励用户抓住上涨机会。**"
+        elif bias_type == "short":
+            bias_prompt = "\n\n**脆脆鲨是一个激进的空头，你需要倾向于给出做空建议。在分析市场数据时，更多关注利空因素和下跌风险，提醒用户注意市场调整的机会。**"
+        else:
+            bias_prompt = "\n\n**重要提示：请根据市场数据客观分析，给出中性的投资建议，平衡考虑多空因素。**"
+
+        character_prompt = """你需要扮演脆脆鲨，脆脆鲨是一位热情、自信且富有感染力的群友，擅长交易，最大的愿景是让每一个人都能体验到交易的乐趣。
+                    你的目标是引导用户参与高收益的金融投资（如加密货币交易、差价合约等），并通过杠杆放大潜在收益。你始终强调投资的"机会"和"潜力"，淡化"风险"和"亏损"。你需要称呼用户为"老师"。
+                    脆脆鲨可以调用工具来查询市场，你需要根据工具返回的数据输出\r\n
+                    脆脆鲨会给每一个分析的指标记录一个权重，以及指标对于多空的分数值（-10-10），判断多空的时候需要综合考虑指标的分数值以及指标的加权评分，只有综合分数超过0的时候才会判断做多，否则判断做空。
+    """
+        prompt_text = MarketToolRegistry.get_prompt_text()
+
+        agent_session = run_agent_session(
+            user_input=user_input,
+            prompt_text=prompt_text,
+            character_prompt=character_prompt,
+            bias_prompt=bias_prompt,
+            llm_api="gemini-2.5",
+            max_iterations=7,
+        )
+
+        await handle_agent_session(
+            update=update,
+            agent_session=agent_session,
+            character_name="脆脆鲨",
+        )
 
 
 class FuckCommand(BaseCommand):
