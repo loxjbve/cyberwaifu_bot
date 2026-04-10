@@ -16,6 +16,16 @@ class CommandHandlers:
     """
     _command_maps: dict[str, dict[str, Callable]] | None = None
 
+    @staticmethod
+    def _is_valid_command_class(obj: object) -> bool:
+        return (
+            inspect.isclass(obj)
+            and issubclass(obj, BaseCommand)
+            and obj != BaseCommand
+            and not inspect.isabstract(obj)
+            and hasattr(obj, "meta")
+        )
+
     @classmethod
     def initialize(cls):
         """
@@ -37,10 +47,10 @@ class CommandHandlers:
                 continue
 
             for name, obj in inspect.getmembers(module):
-                if inspect.isclass(obj) and issubclass(obj, BaseCommand) and obj != BaseCommand:
+                if cls._is_valid_command_class(obj):
                     try:
                         instance = obj()
-                        if hasattr(instance, "meta") and instance.meta.enabled:
+                        if instance.meta.enabled:
                             command_type = instance.meta.command_type
                             if command_type == "admin":
                                 command_type = "private"  # 管理员命令视为私聊命令
@@ -88,6 +98,10 @@ class CommandHandlers:
             "private": [],
             "group": [],
         }  # 类型提示BotCommandData
+        command_weights: dict[str, dict[str, int]] = {
+            "private": {},
+            "group": {},
+        }
         for module_name in module_names:
             try:
                 module = importlib.import_module(
@@ -100,36 +114,30 @@ class CommandHandlers:
                 continue
 
             for name, obj in inspect.getmembers(module):  # 扫描模块中的所有成员
-
-                if (
-                        inspect.isclass(obj)
-                        and issubclass(obj, BaseCommand)
-                        and obj != BaseCommand
-                ):  # 检查是否是BaseCommand的子类
+                if CommandHandlers._is_valid_command_class(obj):
                     try:
-
                         instance = obj()  # 创建命令类实例
-                        if hasattr(instance, "meta"):  # 确保有meta属性
-                            if (
-                                    instance.meta.enabled and instance.meta.show_in_menu
-                            ):  # 确保已激活和显示在菜单中
+                        if (
+                                instance.meta.enabled and instance.meta.show_in_menu
+                        ):  # 确保已激活和显示在菜单中
 
-                                command_type = instance.meta.command_type
-                                if command_type == "admin":
-                                    command_type = "private"  # 将admin命令归类到private
-                                if command_type in command_definitions:
-                                    command_definitions[command_type].append(
-                                        BotCommandData(
-                                            instance.meta.trigger,
-                                            instance.meta.menu_text,
-                                        )
-                                        # 使用BotCommandData
+                            command_type = instance.meta.command_type
+                            if command_type == "admin":
+                                command_type = "private"  # 将admin命令归类到private
+                            if command_type in command_definitions:
+                                command_definitions[command_type].append(
+                                    BotCommandData(
+                                        instance.meta.trigger,
+                                        instance.meta.menu_text,
                                     )
-
-                                else:
-                                    print(
-                                        f"Unknown command type: {command_type} for command {instance.meta.trigger}"
-                                    )
+                                )
+                                command_weights[command_type][instance.meta.trigger] = (
+                                    instance.meta.menu_weight
+                                )
+                            else:
+                                print(
+                                    f"Unknown command type: {command_type} for command {instance.meta.trigger}"
+                                )
                     except Exception as e:
                         logger.error(
                             f"Error processing command {name}: {e}", exc_info=True
@@ -139,20 +147,6 @@ class CommandHandlers:
         for command_type in command_definitions:
             command_definitions[command_type] = sorted(
                 command_definitions[command_type],
-                key=lambda cmd: next(
-                    (
-                        getattr(cls, "meta").menu_weight
-                        for cmd_name, cls in inspect.getmembers(
-                        importlib.import_module(
-                            f"bot_core.command_handlers.{command_type}"
-                        )
-                    )
-                        if inspect.isclass(cls)
-                           and issubclass(cls, BaseCommand)
-                           and cls != BaseCommand
-                           and getattr(cls, "meta").trigger == cmd.command
-                    ),
-                    0,
-                ),
+                key=lambda cmd: command_weights[command_type].get(cmd.command, 0),
             )
         return command_definitions
