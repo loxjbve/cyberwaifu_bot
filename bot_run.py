@@ -13,12 +13,13 @@ from bot_core.callback_handlers.callback import create_callback_handler
 from bot_core.command_handlers.regist import CommandHandlers
 from bot_core.services.trading.monitor_service import monitor_service
 from bot_core.services.utils.error import BotError, error_handler
+from utils.bootstrap import bootstrap_application
 from utils.config_utils import AppSettings, load_settings, validate_settings
 from utils.db_utils import close_all_connections
-from utils.logging_utils import setup_logging
+from utils.logging_utils import bootstrap_logging
 from web.factory import create_app
 
-setup_logging()
+bootstrap_logging()
 logger = logging.getLogger(__name__)
 
 
@@ -92,6 +93,7 @@ def register_lifecycle(app: Application, settings: AppSettings) -> None:
 
 
 def build_bot_app(settings: AppSettings) -> Application:
+    bootstrap_application(settings)
     validate_settings(settings, require_bot_token=True)
     CommandHandlers.initialize()
 
@@ -103,6 +105,7 @@ def build_bot_app(settings: AppSettings) -> Application:
 
 
 def _run_web_app(settings: AppSettings) -> None:
+    bootstrap_application(settings)
     app = create_app(settings)
     logger.info("Starting web admin at http://%s:%s", settings.web.host, settings.web.port)
     app.run(

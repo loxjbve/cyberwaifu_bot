@@ -11,7 +11,6 @@ from bot_core.data_repository.sign_repository import SignRepository
 from bot_core.data_repository.user_config_repository import UserConfigRepository
 from bot_core.data_repository.user_profiles_repository import UserProfilesRepository
 from bot_core.data_repository.users_repository import UsersRepository
-from utils.db_utils import query_db, revise_db
 
 logger = logging.getLogger(__name__)
 
@@ -120,21 +119,17 @@ class ConversationGateway:
         self.user_config = UserConfigRepository()
 
     def get_private(self, conv_id: int) -> Optional[Conversation]:
-        record = query_db(
-            """
-            SELECT conv_id, user_id, character, preset, delete_mark, create_at, update_at, turns
-            FROM conversations
-            WHERE conv_id = ?
-            """,
-            (conv_id,),
+        row = _unwrap_result(
+            self.conversations.conversation_private_detail_get(conv_id),
+            default=None,
+            action=f"load conversation {conv_id}",
         )
-        if not record:
+        if not row:
             return None
 
-        row = record[0]
         summaries = self.get_summaries(conv_id)
         history_rows = _unwrap_result(
-            self.conversations.dialog_content_load(conv_id, "private", raw=False),
+            self.conversations.dialog_content_with_timestamps_load(conv_id, "private"),
             default=[],
             action=f"load conversation history {conv_id}",
         )
@@ -155,15 +150,7 @@ class ConversationGateway:
                     "created_at": row_time,
                 }
             )
-            for role, turn_order, processed_content, row_time in query_db(
-                """
-                SELECT role, turn_order, processed_content, created_at
-                FROM dialogs
-                WHERE conv_id = ?
-                ORDER BY turn_order ASC
-                """,
-                (conv_id,),
-            )
+            for role, turn_order, processed_content, row_time in history_rows
         ]
 
         return Conversation.model_validate(
@@ -356,11 +343,11 @@ class GroupGateway:
             )
 
     def update_group_conversation_turn(self, conv_id: int, turns_increase: int = 0) -> None:
-        affected_rows = revise_db(
-            "UPDATE group_user_conversations SET turns = COALESCE(turns, 0) + ? WHERE conv_id = ?",
-            (turns_increase, conv_id),
+        result = self.conversations.conversation_group_turns_increment(
+            conv_id,
+            turns_increase,
         )
-        if affected_rows <= 0:
+        if not result["success"]:
             raise DataAccessError(f"Failed to update group conversation turns for {conv_id}")
 
     def update_group_stats(

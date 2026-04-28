@@ -2,7 +2,7 @@
 import logging
 from typing import AsyncGenerator, Dict, Any, Tuple, List
 import datetime 
-from utils.config_utils import get_config, DEFAULT_API
+from utils.config_utils import get_config, get_default_api
 from agent.tools_handler import parse_and_invoke_tool
 from utils.LLM_utils import LLM, llm_client_manager, PromptsBuilder
 from utils.logging_utils import setup_logging
@@ -496,7 +496,7 @@ async def generate_char(character_description: str,nsfw:bool=True) -> str:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": character_description},
                 ]
-                client = LLM(DEFAULT_API, "private")
+                client = LLM(get_default_api(), "private")
                 client.set_messages(history)
                 client.set_default_client()
                 result = await client.final_response()

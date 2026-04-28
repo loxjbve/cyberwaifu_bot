@@ -3,20 +3,29 @@ from telegram.ext import ContextTypes
 from utils.logging_utils import setup_logging
 from bot_core.command_handlers.base import BaseCommand, CommandMeta
 from bot_core.services.messages import MessageDeletionService, RealTimePositionService
+from bot_core.services.trading.facade import trading_facade
 from utils.config_utils import get_config
 from telegram import Update
-# 导入新的交易服务模块（增强的订单驱动系统）
-from bot_core.services.trading.order_service import order_service
-from bot_core.services.trading.account_service import account_service
-from bot_core.services.trading.position_service import position_service
-from bot_core.services.trading.analysis_service import analysis_service
-from bot_core.services.trading.loan_service import loan_service
-from bot_core.services.trading.price_service import price_service
-from bot_core.data_repository.trading_repository import TradingRepository
 
 fuck_api = get_config("fuck_or_not_api", "gemini-2.5")
 setup_logging()
 logger = logging.getLogger(__name__)
+
+
+order_service = trading_facade
+account_service = trading_facade
+position_service = trading_facade
+analysis_service = trading_facade
+loan_service = trading_facade
+price_service = trading_facade
+
+
+class _TradingRepositoryFacade:
+    get_positions = staticmethod(trading_facade.get_positions_snapshot)
+    update_order_tp_sl = staticmethod(trading_facade.update_order_tp_sl)
+
+
+TradingRepository = _TradingRepositoryFacade
 
 
 # 模拟盘交易命令
@@ -91,7 +100,6 @@ class LongCommand(BaseCommand):
                         order_id = result.get('order_id')
                         # 为挂单添加止盈止损价格信息，当挂单触发时会自动同步到仓位表
                         if order_id:
-                            from bot_core.data_repository.trading_repository import TradingRepository
                             tp_sl_result = TradingRepository.update_order_tp_sl(order_id, tp_price, sl_price)
                             if tp_sl_result.get('success'):
                                 logger.info(f"挂单止盈止损价格已设置: 订单{order_id} TP:{tp_price} SL:{sl_price}")
@@ -269,7 +277,6 @@ class ShortCommand(BaseCommand):
                         order_id = result.get('order_id')
                         # 为挂单添加止盈止损价格信息，当挂单触发时会自动同步到仓位表
                         if order_id:
-                            from bot_core.data_repository.trading_repository import TradingRepository
                             tp_sl_result = TradingRepository.update_order_tp_sl(order_id, tp_price, sl_price)
                             if tp_sl_result.get('success'):
                                 logger.info(f"挂单止盈止损价格已设置: 订单{order_id} TP:{tp_price} SL:{sl_price}")
@@ -439,7 +446,6 @@ class PositionCommand(BaseCommand):
                 for pos in positions:
                     total_position_value += pos['size']
                     # 计算未实现盈亏
-                    from bot_core.services.trading.price_service import price_service
                     current_price = await price_service.get_current_price(pos['symbol'])
                     if current_price and current_price > 0:
                         if pos['side'] == 'long':
@@ -474,7 +480,6 @@ class PositionCommand(BaseCommand):
                 message_parts.append("📈 当前持仓:")
                 for pos in positions:
                     # 计算未实现盈亏
-                    from bot_core.services.trading.price_service import price_service
                     current_price = await price_service.get_current_price(pos['symbol'])
                     if current_price and current_price > 0:
                         if pos['side'] == 'long':

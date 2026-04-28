@@ -416,12 +416,11 @@ class GroupConv:
                 conversation=temp_conversation,
                 group=self.group,
                 group_config=self.config,
+                telegram_context=self.context,
+                images=self.images,
             )
-            messages = prompt_service.build_group_chat_prompts(images=self.images)
+            messages = await prompt_service.build_group_messages()
             conv_service = ConversationService(self.client, self.user, self.context, temp_conversation)
-
-            if self.images:
-                await self.client.embedd_image(self.images, self.context)
 
             response_text = await conv_service.responder.collect_response(messages)
             factory = MessageFactory(update=self.update, context=self.context)
@@ -497,7 +496,7 @@ class PrivateConv:
                 raise BotError(f"API配置 '{self.user.api}' 不存在") from error
             raise
 
-        SummaryService(self.conversation).check_and_generate_summaries_async()
+        self.summary_service = SummaryService(self.conversation)
         self.conv_service = ConversationService(
             self.client,
             self.user,
@@ -570,7 +569,7 @@ class PrivateConv:
                 conversation=self.conversation,
                 input_text=self.input.text_raw,
             )
-            messages = prompt_service.build_private_chat_prompts()
+            messages = await prompt_service.build_private_messages()
             final_response_text = await self.conv_service.responder.stream_private_response(
                 messages,
                 self.placeholder,
@@ -596,6 +595,7 @@ class PrivateConv:
 
             if save and self.output:
                 self.conv_service.save_turn(self.input, self.output, messages)
+                self.summary_service.check_and_generate_summaries_async()
         except Exception as error:
             logger.error("Private response failed: %s", error, exc_info=True)
             if self.placeholder:

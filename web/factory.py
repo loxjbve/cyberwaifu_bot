@@ -1,6 +1,4 @@
 import logging
-import os
-import sys
 from datetime import datetime
 from typing import Optional
 
@@ -53,11 +51,6 @@ def highlight_search_keyword(text, keyword):
 
 def create_app(settings: Optional[AppSettings] = None) -> Flask:
     active_settings = settings or get_settings()
-    project_root = active_settings.project_root
-    if project_root not in sys.path:
-        sys.path.append(project_root)
-
-    os.environ["DB_PATH"] = active_settings.database.path
 
     app = Flask(__name__, template_folder="templates", static_folder="static")
     app.secret_key = active_settings.web.secret_key

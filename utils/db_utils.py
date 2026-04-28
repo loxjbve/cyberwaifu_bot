@@ -5,22 +5,53 @@ import os
 import sqlite3
 import threading
 from sqlite3 import Error
-from typing import Any, List, Optional, Tuple,Union
+from typing import Any, List, Optional, Tuple, Union
 
-from utils.config_utils import get_config, project_root
+from utils.config_utils import (
+    get_config,
+    get_default_api,
+    get_default_balance,
+    get_default_char,
+    get_default_frequency,
+    get_default_preset,
+    get_default_stream,
+    project_root,
+)
 from utils.logging_utils import setup_logging
 from utils.schema_migration import check_and_migrate_database_schema
 
 setup_logging()
 logger = logging.getLogger(__name__)
 
-# 从配置系统获取默认值
-DEFAULT_API = get_config("api.default_api")  # 默认使用的LLM API
-DEFAULT_PRESET = get_config("user.default_preset")  # 默认预设名称
-DEFAULT_CHAR = get_config("user.default_char")  # 默认角色名称
-DEFAULT_STREAM = get_config("user.default_stream")  # 默认是否开启流式传输 ('yes'/'no')
-DEFAULT_FREQUENCY = get_config("user.default_frequency")  # 用户默认的每日免费使用次数
-DEFAULT_BALANCE = get_config("user.default_balance")  # 用户默认的初始余额
+from db.runtime import (
+    close_database_runtime,
+    get_database_runtime,
+    manual_wal_checkpoint as runtime_manual_wal_checkpoint,
+)
+
+
+class _RuntimePoolProxy:
+    def get_connection(self) -> Tuple[Optional[sqlite3.Connection], int]:
+        runtime = get_database_runtime()
+        runtime.initialize()
+        if not runtime.pool:
+            return None, -1
+        return runtime.pool.get_connection()
+
+    def release_connection(self, index: int) -> None:
+        runtime = get_database_runtime()
+        if runtime.pool:
+            runtime.pool.release_connection(index)
+
+    def close_all(self) -> None:
+        close_database_runtime()
+
+    def trigger_wal_checkpoint(self) -> bool:
+        return runtime_manual_wal_checkpoint()
+
+
+db_pool = _RuntimePoolProxy()
+
 
 
 def init_database_if_not_exists():
@@ -347,8 +378,6 @@ class DatabaseConnectionPool:
 
 
 # 创建全局连接池实例前，先确保数据库存在
-init_database_if_not_exists()
-db_pool = DatabaseConnectionPool()
 
 
 def create_connection() -> Optional[sqlite3.Connection]:
@@ -361,7 +390,11 @@ def create_connection() -> Optional[sqlite3.Connection]:
     Returns:
         Optional[sqlite3.Connection]: 数据库连接对象
     """
-    conn, _ = db_pool.get_connection()
+    runtime = get_database_runtime()
+    runtime.initialize()
+    if not runtime.pool:
+        return None
+    conn, _ = runtime.pool.get_connection()
     return conn
 
 
@@ -378,6 +411,10 @@ def execute_db_operation(operation_type: str, command: str, params: Tuple = ()):
         Union[List[Any], int]: 如果是查询操作，返回结果列表；如果是更新操作，返回受影响的行数。
             发生错误时，查询返回空列表，更新返回0。
     """
+    runtime = get_database_runtime()
+    if operation_type == "query":
+        return runtime.query(command, params)
+    return runtime.execute(command, params)
     conn, conn_index = db_pool.get_connection()
     if not conn:
         print(f"数据库错误: 无法获取连接以执行 {operation_type} 操作: {command}")
@@ -416,6 +453,7 @@ def execute_raw_sql(command: str) -> Union[List[Any], int, str]:
     Returns:
         Union[List[Any], int, str]: 查询返回结果列表，更新返回受影响行数，错误则返回错误信息字符串。
     """
+    return get_database_runtime().execute_raw(command)
     conn, conn_index = db_pool.get_connection()
     if not conn:
         error_msg = f"数据库错误: 无法获取连接以执行原始SQL: {command}"
@@ -646,7 +684,14 @@ def user_config_create(userid: int, nick: Optional[str] = None) -> bool:
     command = (
         "INSERT OR IGNORE INTO user_config (char, api, preset, uid, stream, nick) VALUES (?, ?, ?, ?, ?, ?)"
     )
-    params = (DEFAULT_CHAR, DEFAULT_API, DEFAULT_PRESET, userid, DEFAULT_STREAM, nick)
+    params = (
+        get_default_char(),
+        get_default_api(),
+        get_default_preset(),
+        userid,
+        get_default_stream(),
+        nick,
+    )
     result = revise_db(command, params)
     return result >= 0  # IGNORE 成功时返回0，所以用 >= 0 判断
 
@@ -728,8 +773,8 @@ def user_info_create(
             0,
             0,
             0,
-            DEFAULT_FREQUENCY,
-            DEFAULT_BALANCE,
+            get_default_frequency(),
+            get_default_balance(),
         ),
     )
     return result > 0
@@ -1223,7 +1268,15 @@ def group_info_create(group_id: int) -> bool:
         bool: 操作是否成功
     """
     command = "INSERT INTO groups (group_id, api, char, preset) VALUES (?, ?, ?, ?)"
-    result = revise_db(command, (group_id, DEFAULT_API, DEFAULT_CHAR, DEFAULT_PRESET))
+    result = revise_db(
+        command,
+        (
+            group_id,
+            get_default_api(),
+            get_default_char(),
+            get_default_preset(),
+        ),
+    )
     return result > 0
 
 
@@ -1523,9 +1576,9 @@ def get_table_data(
 # 应用退出时关闭所有数据库连接
 def close_all_connections():
     """关闭连接池中的所有数据库连接。应在应用退出时调用。"""
-    db_pool.close_all()
+    close_database_runtime()
 
 
 def manual_wal_checkpoint():
     """手动触发 WAL 检查点。"""
-    return db_pool.trigger_wal_checkpoint()
+    return runtime_manual_wal_checkpoint()

@@ -6,9 +6,8 @@ import datetime
 import logging
 from typing import Any, List, Optional, Tuple, Union
 
-from utils.db_utils import (
-    query_db, revise_db, DEFAULT_FREQUENCY, DEFAULT_BALANCE
-)
+from utils.config_utils import get_default_balance, get_default_frequency
+from utils.db_utils import query_db, revise_db
 from utils.logging_utils import setup_logging
 
 setup_logging()
@@ -305,8 +304,8 @@ class UsersRepository:
                     0,
                     0,
                     0,
-                    DEFAULT_FREQUENCY,
-                    DEFAULT_BALANCE,
+                    get_default_frequency(),
+                    get_default_balance(),
                 ),
             )
 

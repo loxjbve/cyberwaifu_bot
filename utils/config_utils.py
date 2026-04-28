@@ -277,13 +277,33 @@ def validate_settings(settings: Optional[AppSettings] = None, *, require_bot_tok
         raise ValueError("flask.secret_key is required")
 
 
-load_settings()
+def get_bot_token() -> str:
+    return get_settings().telegram_token
 
-BOT_TOKEN = get_settings().telegram_token
-ADMIN_LIST = list(get_settings().admin_ids)
-DEFAULT_API = get_settings().default_api
-DEFAULT_CHAR = get_settings().default_char
-DEFAULT_PRESET = get_settings().default_preset
-DEFAULT_STREAM = get_settings().default_stream
-DEFAULT_FREQUENCY = get_settings().default_frequency
-DEFAULT_BALANCE = get_settings().default_balance
+
+def get_admin_ids() -> list[int]:
+    return list(get_settings().admin_ids)
+
+
+def get_default_api() -> str:
+    return get_settings().default_api
+
+
+def get_default_char() -> str:
+    return get_settings().default_char
+
+
+def get_default_preset() -> str:
+    return get_settings().default_preset
+
+
+def get_default_stream() -> str:
+    return get_settings().default_stream
+
+
+def get_default_frequency() -> int:
+    return get_settings().default_frequency
+
+
+def get_default_balance() -> float:
+    return get_settings().default_balance

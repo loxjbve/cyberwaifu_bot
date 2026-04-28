@@ -2,7 +2,7 @@ import json
 import os
 from typing import Dict, Optional
 
-from utils.config_utils import ADMIN_LIST, BOT_TOKEN, get_config, get_path
+from utils.config_utils import get_admin_ids, get_bot_token, get_config, get_path
 import time
 from PIL import Image
 from telegram import Update
@@ -33,7 +33,7 @@ def load_config():
             raise ValueError("配置中未找到 api_list")
 
         # 返回与旧版相同格式的配置字典
-        return {"token": BOT_TOKEN, "api": API_LIST, "admin": ADMIN_LIST}
+        return {"token": get_bot_token(), "api": API_LIST, "admin": get_admin_ids()}
     except Exception as e:
         print(f"加载配置时出错: {str(e)}")
         return None

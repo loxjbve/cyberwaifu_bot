@@ -360,14 +360,14 @@ class DatabaseSchemaComparator:
             expected.autoincrement != current.autoincrement
         )
 
-def get_schema_parser() -> SQLSchemaParser:
+def get_schema_parser(sql_path: Optional[str] = None) -> SQLSchemaParser:
     """获取SQL结构解析器实例"""
-    sql_file_path = os.path.join(project_root, "data", "database.sql")
+    sql_file_path = sql_path or os.path.join(project_root, "data", "database.sql")
     return SQLSchemaParser(sql_file_path)
 
-def get_schema_comparator() -> DatabaseSchemaComparator:
+def get_schema_comparator(db_path: Optional[str] = None) -> DatabaseSchemaComparator:
     """获取数据库结构比较器实例"""
-    db_path = os.path.join(project_root, "data", "data.db")
+    db_path = db_path or os.path.join(project_root, "data", "data.db")
     return DatabaseSchemaComparator(db_path)
 
 class DatabaseSchemaMigrator:
@@ -550,18 +550,22 @@ class DatabaseSchemaMigrator:
         
         return ' '.join(sql_parts)
 
-def get_schema_migrator() -> DatabaseSchemaMigrator:
+def get_schema_migrator(db_path: Optional[str] = None) -> DatabaseSchemaMigrator:
     """获取数据库结构迁移器实例"""
-    db_path = os.path.join(project_root, "data", "data.db")
+    db_path = db_path or os.path.join(project_root, "data", "data.db")
     return DatabaseSchemaMigrator(db_path)
 
-def check_and_migrate_database_schema() -> bool:
+def check_and_migrate_database_schema(
+    *,
+    db_path: Optional[str] = None,
+    sql_path: Optional[str] = None,
+) -> bool:
     """检查并迁移数据库表结构"""
     try:
         logger.info("开始检查数据库表结构...")
         
         # 解析期望的表结构
-        parser = get_schema_parser()
+        parser = get_schema_parser(sql_path)
         expected_schemas = parser.parse_sql_file()
         
         if not expected_schemas:
@@ -569,8 +573,8 @@ def check_and_migrate_database_schema() -> bool:
             return True
         
         # 获取比较器和迁移器
-        comparator = get_schema_comparator()
-        migrator = get_schema_migrator()
+        comparator = get_schema_comparator(db_path)
+        migrator = get_schema_migrator(db_path)
         
         migration_success = True
         

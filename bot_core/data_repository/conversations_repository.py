@@ -150,6 +150,27 @@ class ConversationsRepository:
             }
 
     @staticmethod
+    def conversation_private_detail_get(conv_id: int) -> dict:
+        try:
+            command = """
+                SELECT conv_id, user_id, character, preset, delete_mark, create_at, update_at, turns
+                FROM conversations
+                WHERE conv_id = ?
+            """
+            result = query_db(command, (conv_id,))
+            return {
+                "success": True,
+                "data": result[0] if result else None,
+            }
+        except Exception as e:
+            logger.error(f"获取私聊对话详情失败: {e}")
+            return {
+                "success": False,
+                "data": None,
+                "error": str(e),
+            }
+
+    @staticmethod
     def conversation_latest_message_id_get(conv_id: int) -> dict:
         """
         获取指定会话的最新两条消息的msg_id列表
@@ -670,6 +691,27 @@ class ConversationsRepository:
             }
 
     @staticmethod
+    def conversation_group_turns_increment(conv_id: int, turns_increase: int = 0) -> dict:
+        try:
+            command = """
+                UPDATE group_user_conversations
+                SET turns = COALESCE(turns, 0) + ?
+                WHERE conv_id = ?
+            """
+            result = revise_db(command, (turns_increase, conv_id))
+            return {
+                "success": result > 0,
+                "data": result,
+            }
+        except Exception as e:
+            logger.error(f"递增群聊对话轮数失败: {e}")
+            return {
+                "success": False,
+                "data": 0,
+                "error": str(e),
+            }
+
+    @staticmethod
     def dialog_content_add(conv_id: int, role: str, turn_order: int, raw_content: str, processed_content: str, msg_id: Optional[int] = None, chat_type: str = "private") -> dict:
         """
         添加对话内容到相应的对话表，并更新对应会话表的update_at时间戳
@@ -888,6 +930,29 @@ class ConversationsRepository:
                 "success": False,
                 "data": [],
                 "error": str(e)
+            }
+
+    @staticmethod
+    def dialog_content_with_timestamps_load(conv_id: int, chat_type: str = "private") -> dict:
+        try:
+            table_name = "group_user_dialogs" if chat_type == "group" else "dialogs"
+            command = f"""
+                SELECT role, turn_order, processed_content, created_at
+                FROM {table_name}
+                WHERE conv_id = ?
+                ORDER BY turn_order ASC
+            """
+            result = query_db(command, (conv_id,))
+            return {
+                "success": True,
+                "data": result if result else [],
+            }
+        except Exception as e:
+            logger.error(f"加载带时间戳的对话内容失败: {e}")
+            return {
+                "success": False,
+                "data": [],
+                "error": str(e),
             }
 
     @staticmethod

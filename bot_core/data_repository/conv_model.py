@@ -1,6 +1,6 @@
 import datetime
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 class User(BaseModel):
     """代表一个完整的用户实体，整合了多个表的数据。"""
@@ -28,8 +28,7 @@ class User(BaseModel):
     sign_in_count: int = Field(0, alias='sign_count')
     temporary_frequency: int = Field(0, alias='frequency')
 
-    class Config:
-        populate_by_name = True # 允许使用别名和字段名进行赋值
+    model_config = ConfigDict(populate_by_name=True)
 
 class DialogMessage(BaseModel):
     """代表对话中的一条消息。"""
@@ -53,10 +52,9 @@ class Conversation(BaseModel):
     updated_at: datetime.datetime
     
     # 动态加载的对话历史
-    history: List[DialogMessage] = []
+    history: List[DialogMessage] = Field(default_factory=list)
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 class Group(BaseModel):
     """代表一个群组。"""

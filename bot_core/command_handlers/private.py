@@ -884,8 +884,9 @@ class FeedbackCommand(BaseCommand):
         处理用户反馈命令，将用户的反馈消息发送给所有管理员。
         命令格式: /feedback <反馈内容>
         """
-        from utils.config_utils import ADMIN_LIST as ADMIN
+        from utils.config_utils import get_admin_ids
 
+        ADMIN = get_admin_ids()
         args = context.args if hasattr(context, "args") else []
 
         # 1. 参数校验

@@ -3,9 +3,6 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-import re
-import shutil
-import time
 from typing import Union
 
 from flask import Blueprint, Response, current_app, jsonify, request, send_from_directory, session
@@ -13,6 +10,7 @@ from flask import Blueprint, Response, current_app, jsonify, request, send_from_
 from agent.llm_functions import generate_summary
 from utils.config_utils import get_settings
 from web.factory import admin_required, app_logger, get_admin_ids, viewer_or_admin_required
+from web.services.config_file_service import ConfigFileService
 from web.services.user_admin_service import UserAdminService
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
@@ -21,6 +19,10 @@ admin_service = UserAdminService()
 
 def _project_root() -> str:
     return get_settings().project_root
+
+
+def _config_service() -> ConfigFileService:
+    return ConfigFileService(_project_root())
 
 
 @api_bp.route("/message_page/<group_id>/<msg_id>")
@@ -82,44 +84,7 @@ def api_user_detail(user_id) -> Union[Response, tuple[Response, int]]:
 @admin_required
 def api_config_list():
     try:
-        base_path = _project_root()
-        config_dirs = {
-            "characters": "characters",
-            "config": "config",
-            "prompts": "prompts",
-            "agent_docs": "agent/docs",
-        }
-        result = {}
-        for category, rel_dir_path in config_dirs.items():
-            files = []
-            abs_dir_path = os.path.join(base_path, rel_dir_path)
-            if os.path.exists(abs_dir_path):
-                for filename in os.listdir(abs_dir_path):
-                    if not filename.endswith(".json"):
-                        continue
-                    abs_file_path = os.path.join(abs_dir_path, filename)
-                    rel_file_path = f"{rel_dir_path}/{filename}".replace("\\", "/")
-                    try:
-                        with open(abs_file_path, "r", encoding="utf-8") as file:
-                            json.load(file)
-                        files.append(
-                            {
-                                "name": filename,
-                                "path": rel_file_path,
-                                "size": os.path.getsize(abs_file_path),
-                                "modified": os.path.getmtime(abs_file_path),
-                            }
-                        )
-                    except Exception as error:
-                        files.append(
-                            {
-                                "name": filename,
-                                "path": rel_file_path,
-                                "error": str(error),
-                            }
-                        )
-            result[category] = files
-        return jsonify(result)
+        return jsonify(_config_service().list_files())
     except Exception as error:
         return jsonify({"error": str(error)}), 500
 
@@ -131,33 +96,13 @@ def api_config_read():
         rel_path = request.args.get("path")
         if not rel_path:
             return jsonify({"error": "Missing path"}), 400
-
-        rel_path = os.path.normpath(rel_path).replace("\\", "/")
-        if rel_path.startswith(("../", "./", "/")):
-            return jsonify({"error": "Invalid path"}), 403
-
-        base_path = _project_root()
-        allowed_dirs = ["characters/", "config/", "prompts/", "agent/docs/"]
-        if not any(rel_path.startswith(prefix) for prefix in allowed_dirs):
-            return jsonify({"error": "Access denied"}), 403
-
-        file_path = os.path.join(base_path, rel_path)
-        if not os.path.abspath(file_path).startswith(os.path.abspath(base_path)):
-            return jsonify({"error": "Access denied"}), 403
-        if not os.path.exists(file_path) or not os.path.isfile(file_path):
-            return jsonify({"error": "File not found"}), 404
-
-        with open(file_path, "r", encoding="utf-8") as file:
-            content = json.load(file)
-        return jsonify(
-            {
-                "content": content,
-                "path": rel_path,
-                "name": os.path.basename(file_path),
-            }
-        )
+        return jsonify(_config_service().read_file(rel_path))
     except json.JSONDecodeError as error:
         return jsonify({"error": f"Invalid JSON: {error}"}), 400
+    except PermissionError as error:
+        return jsonify({"error": str(error)}), 403
+    except FileNotFoundError as error:
+        return jsonify({"error": str(error)}), 404
     except Exception as error:
         return jsonify({"error": str(error)}), 500
 
@@ -171,26 +116,9 @@ def api_config_save():
         content = payload.get("content")
         if not rel_path or content is None:
             return jsonify({"error": "Missing path or content"}), 400
-
-        rel_path = os.path.normpath(rel_path).replace("\\", "/")
-        if rel_path.startswith(("../", "./", "/")):
-            return jsonify({"error": "Invalid path"}), 403
-
-        base_path = _project_root()
-        allowed_dirs = ["characters/", "config/", "prompts/", "agent/docs/"]
-        if not any(rel_path.startswith(prefix) for prefix in allowed_dirs):
-            return jsonify({"error": "Access denied"}), 403
-
-        file_path = os.path.join(base_path, rel_path)
-        if not os.path.abspath(file_path).startswith(os.path.abspath(base_path)):
-            return jsonify({"error": "Access denied"}), 403
-
-        json.dumps(content)
-        if os.path.exists(file_path):
-            shutil.copy2(file_path, f"{file_path}.backup")
-        with open(file_path, "w", encoding="utf-8") as file:
-            json.dump(content, file, ensure_ascii=False, indent=2)
-        return jsonify({"success": True, "message": "Saved"})
+        return jsonify(_config_service().save_file(rel_path, content))
+    except PermissionError as error:
+        return jsonify({"error": str(error)}), 403
     except Exception as error:
         return jsonify({"error": str(error)}), 500
 
@@ -205,34 +133,13 @@ def api_config_create():
         content = payload.get("content", {})
         if not category or not filename:
             return jsonify({"error": "Missing category or filename"}), 400
-        if not filename.endswith(".json"):
-            filename += ".json"
-
-        filename = re.sub(r"[\\/*?:\"<>|]", "", filename)
-        base_path = _project_root()
-        allowed_categories = {
-            "characters": "characters",
-            "config": "config",
-            "prompts": "prompts",
-            "agent_docs": "agent/docs",
-        }
-        if category not in allowed_categories:
-            return jsonify({"error": "Invalid category"}), 400
-
-        dir_path = os.path.join(base_path, allowed_categories[category])
-        os.makedirs(dir_path, exist_ok=True)
-        file_path = os.path.join(dir_path, filename)
-        if not os.path.abspath(file_path).startswith(os.path.abspath(dir_path)):
-            return jsonify({"error": "Invalid filename"}), 403
-        if os.path.exists(file_path):
-            return jsonify({"error": "File already exists"}), 409
-
-        json.dumps(content)
-        with open(file_path, "w", encoding="utf-8") as file:
-            json.dump(content, file, ensure_ascii=False, indent=2)
-
-        rel_path = f"{allowed_categories[category]}/{filename}".replace("\\", "/")
-        return jsonify({"success": True, "message": "Created", "path": rel_path})
+        return jsonify(_config_service().create_file(category, filename, content))
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+    except PermissionError as error:
+        return jsonify({"error": str(error)}), 403
+    except FileExistsError as error:
+        return jsonify({"error": str(error)}), 409
     except Exception as error:
         return jsonify({"error": str(error)}), 500
 
@@ -245,25 +152,11 @@ def api_config_delete():
         rel_path = payload.get("path")
         if not rel_path:
             return jsonify({"error": "Missing path"}), 400
-
-        rel_path = os.path.normpath(rel_path).replace("\\", "/")
-        if rel_path.startswith(("../", "./", "/")):
-            return jsonify({"error": "Invalid path"}), 403
-
-        base_path = _project_root()
-        allowed_dirs = ["characters/", "config/", "prompts/", "agent/docs/"]
-        if not any(rel_path.startswith(prefix) for prefix in allowed_dirs):
-            return jsonify({"error": "Access denied"}), 403
-
-        file_path = os.path.join(base_path, rel_path)
-        if not os.path.abspath(file_path).startswith(os.path.abspath(base_path)):
-            return jsonify({"error": "Access denied"}), 403
-        if not os.path.exists(file_path):
-            return jsonify({"error": "File not found"}), 404
-
-        backup_path = f"{file_path}.deleted.{int(time.time())}"
-        shutil.move(file_path, backup_path)
-        return jsonify({"success": True, "message": "Deleted", "backup": backup_path})
+        return jsonify(_config_service().delete_file(rel_path))
+    except PermissionError as error:
+        return jsonify({"error": str(error)}), 403
+    except FileNotFoundError as error:
+        return jsonify({"error": str(error)}), 404
     except Exception as error:
         return jsonify({"error": str(error)}), 500
 

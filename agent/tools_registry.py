@@ -6,6 +6,7 @@ output formats, and a parser to handle tool invocation requests from an LLM.
 """
 
 import logging
+from dataclasses import dataclass
 from utils.logging_utils import setup_logging
 from agent.tools import MARKETTOOLS
 from agent.tools import DATABASE_SUPER_TOOLS
@@ -657,5 +658,71 @@ for tool_name in DatabaseSuperToolRegistry.TOOLS.keys():
             )
         ALL_TOOLS[tool_name] = tool_func
 logger.info(f"统一工具池初始化完成，包含工具: {list(ALL_TOOLS.keys())}")
+
+
+@dataclass(frozen=True)
+class ToolSpec:
+    name: str
+    description: str
+    tool_type: str
+    parameters: Dict[str, Any]
+    output_format: str
+    example: Dict[str, Any]
+    return_value: str
+    executor: Callable
+
+
+class ToolExecutor:
+    def __init__(self, specs: Dict[str, ToolSpec]) -> None:
+        self._specs = specs
+
+    def get_spec(self, tool_name: str) -> Optional[ToolSpec]:
+        return self._specs.get(tool_name)
+
+    def list_specs(self) -> list[ToolSpec]:
+        return list(self._specs.values())
+
+    def get_callable(self, tool_name: str) -> Optional[Callable]:
+        spec = self.get_spec(tool_name)
+        return spec.executor if spec else None
+
+
+def _build_specs(
+    registry_tools: Dict[str, Dict[str, Any]],
+    resolver: Callable[[str], Optional[Callable]],
+) -> Dict[str, ToolSpec]:
+    specs: Dict[str, ToolSpec] = {}
+    for tool_name, tool_info in registry_tools.items():
+        executor = resolver(tool_name)
+        if not executor:
+            continue
+        specs[tool_name] = ToolSpec(
+            name=tool_name,
+            description=tool_info["description"],
+            tool_type=tool_info["type"],
+            parameters=tool_info.get("parameters", {}),
+            output_format=tool_info.get("output_format", ""),
+            example=tool_info.get("example", {}),
+            return_value=tool_info.get("return_value", ""),
+            executor=executor,
+        )
+    return specs
+
+
+ALL_TOOL_SPECS: Dict[str, ToolSpec] = {}
+ALL_TOOL_SPECS.update(_build_specs(MarketToolRegistry.TOOLS, MarketToolRegistry.get_tool))
+ALL_TOOL_SPECS.update(
+    _build_specs(DatabaseSuperToolRegistry.TOOLS, DatabaseSuperToolRegistry.get_tool)
+)
+
+tool_executor = ToolExecutor(ALL_TOOL_SPECS)
+
+
+def get_tool_spec(tool_name: str) -> Optional[ToolSpec]:
+    return tool_executor.get_spec(tool_name)
+
+
+def get_tool_specs() -> list[ToolSpec]:
+    return tool_executor.list_specs()
 
 

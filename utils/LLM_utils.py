@@ -13,7 +13,7 @@ import tiktoken
 import utils.db_utils as db
 import utils.file_utils as file
 import utils.text_utils as txt
-from utils.config_utils import DEFAULT_API, get_api_config, get_config
+from utils.config_utils import get_api_config, get_config, get_default_api
 from utils.logging_utils import setup_logging
 
 setup_logging()
@@ -104,7 +104,7 @@ class LLM:
     """
     LLM类用于处理与大型语言模型（LLM）的交互，包括构建消息、发送请求和处理响应。
     """
-    def __init__(self, api=DEFAULT_API, chat_type="private"):
+    def __init__(self, api: Optional[str] = None, chat_type="private"):
         """
         初始化LLM实例。
 
@@ -112,7 +112,8 @@ class LLM:
             api (str): API名称，默认为DEFAULT_API。
             chat_type (str): 聊天类型，'private' 或 'group'。
         """
-        self.key, self.base_url, self.model = get_api_config(api)
+        api_name = api or get_default_api()
+        self.key, self.base_url, self.model = get_api_config(api_name)
         self.client = None
         self.messages = []
         self.chat_type = chat_type
@@ -167,7 +168,7 @@ class LLM:
         """
         将LLM实例的API配置重置为默认API。
         """
-        self.key, self.base_url, self.model = get_api_config(DEFAULT_API)
+        self.key, self.base_url, self.model = get_api_config(get_default_api())
 
     async def response(self, stream: bool = False):
         """

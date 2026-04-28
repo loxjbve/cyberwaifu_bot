@@ -5,8 +5,12 @@ import logging
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from utils.config_utils import DEFAULT_CHAR, DEFAULT_PRESET, DEFAULT_API
-from utils.config_utils import ADMIN_LIST as ADMIN
+from utils.config_utils import (
+    get_admin_ids,
+    get_default_api,
+    get_default_char,
+    get_default_preset,
+)
 from bot_core.data_repository.gateways import UserGateway
 from bot_core.services.utils.error import BotError, DatabaseError
 from bot_core.services.utils.tg_parse import update_info_get
@@ -15,6 +19,7 @@ from utils.logging_utils import setup_logging
 
 setup_logging()
 logger = logging.getLogger(__name__)
+ADMIN = get_admin_ids()
 
 
 class Decorators:
@@ -106,7 +111,11 @@ class Decorators:
                         api, char, preset = config[0], config[1], config[2]
                     else:
                         db.group_info_create(group_id)
-                        api, char, preset = DEFAULT_API, DEFAULT_CHAR, DEFAULT_PRESET  # 假设这些常量已定义
+                        api, char, preset = (
+                            get_default_api(),
+                            get_default_char(),
+                            get_default_preset(),
+                        )
                     field_list = ['group_name', 'update_time', 'members_list', 'api', 'char', 'preset']
                     value_list = [group_name, current_time, str(admin_list), api, char, preset]
                     for field, value in zip(field_list, value_list):

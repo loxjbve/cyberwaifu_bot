@@ -5,7 +5,7 @@ import asyncio
 import json
 import re
 
-from agent.tools_registry import logger, ALL_TOOLS
+from agent.tools_registry import get_tool_spec, logger, tool_executor
 
 
 class ToolHandler:
@@ -143,8 +143,9 @@ class ToolHandler:
             result_payload = {"display": error_msg, "llm_feedback": error_msg}
             return {"tool_name": "unknown", "parameters": parameters, "result": result_payload}
 
-        tool_func = ALL_TOOLS.get(tool_name)
-        if not tool_func:
+        tool_spec = get_tool_spec(tool_name)
+        tool_func = tool_executor.get_callable(tool_name)
+        if not tool_func or not tool_spec:
             error_msg = f"未找到工具: {tool_name}"
             logger.warning(error_msg)
             result_payload = {"display": error_msg, "llm_feedback": error_msg}
@@ -153,7 +154,12 @@ class ToolHandler:
         try:
             import inspect
             sig = inspect.signature(tool_func)
-            filtered_params = {k: v for k, v in parameters.items() if k in sig.parameters}
+            allowed_params = set(tool_spec.parameters.keys())
+            filtered_params = {
+                k: v
+                for k, v in parameters.items()
+                if k in sig.parameters and k in allowed_params
+            }
 
             if asyncio.iscoroutinefunction(tool_func):
                 result = await tool_func(**filtered_params)

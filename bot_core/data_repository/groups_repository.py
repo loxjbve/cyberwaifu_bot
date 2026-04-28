@@ -7,7 +7,8 @@ import json
 import logging
 from typing import List, Any, Optional, Tuple
 
-from utils.db_utils import query_db, revise_db, get_config, DEFAULT_API, DEFAULT_CHAR, DEFAULT_PRESET
+from utils.config_utils import get_config, get_default_api, get_default_char, get_default_preset
+from utils.db_utils import query_db, revise_db
 from utils.logging_utils import setup_logging
 
 setup_logging()
@@ -276,7 +277,10 @@ class GroupsRepository:
         """
         try:
             command = "INSERT INTO groups (group_id, api, char, preset) VALUES (?, ?, ?, ?)"
-            result = revise_db(command, (group_id, DEFAULT_API, DEFAULT_CHAR, DEFAULT_PRESET))
+            result = revise_db(
+                command,
+                (group_id, get_default_api(), get_default_char(), get_default_preset()),
+            )
 
             return {
                 "success": result > 0

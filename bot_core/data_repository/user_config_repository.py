@@ -5,9 +5,13 @@ user_config_repository.py - 用户配置表(user_config)相关的CRUD操作
 import logging
 from typing import Any, Optional
 
-from utils.db_utils import (
-    query_db, revise_db, DEFAULT_API, DEFAULT_PRESET, DEFAULT_CHAR, DEFAULT_STREAM
+from utils.config_utils import (
+    get_default_api,
+    get_default_char,
+    get_default_preset,
+    get_default_stream,
 )
+from utils.db_utils import query_db, revise_db
 from utils.logging_utils import setup_logging
 
 setup_logging()
@@ -249,7 +253,14 @@ class UserConfigRepository:
             command = (
                 "INSERT OR IGNORE INTO user_config (char, api, preset, uid, stream, nick) VALUES (?, ?, ?, ?, ?, ?)"
             )
-            params = (DEFAULT_CHAR, DEFAULT_API, DEFAULT_PRESET, userid, DEFAULT_STREAM, nick)
+            params = (
+                get_default_char(),
+                get_default_api(),
+                get_default_preset(),
+                userid,
+                get_default_stream(),
+                nick,
+            )
             result = revise_db(command, params)
 
             # INSERT OR IGNORE 成功时返回0，所以用 >= 0 判断

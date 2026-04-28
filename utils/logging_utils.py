@@ -1,6 +1,9 @@
 import logging
 from typing import Optional
 
+_bootstrap_enabled = False
+_configured = False
+
 
 class ThirdPartyFilter(logging.Filter):
     third_party_libs = {
@@ -38,6 +41,16 @@ def _find_handler(root_logger: logging.Logger, handler_type: type[logging.Handle
 
 
 def setup_logging() -> None:
+    if not _bootstrap_enabled:
+        return
+    _configure_logging()
+
+
+def _configure_logging() -> None:
+    global _configured
+    if _configured:
+        return
+
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
 
@@ -59,6 +72,14 @@ def setup_logging() -> None:
         stream_handler.addFilter(ThirdPartyFilter())
         root_logger.addHandler(stream_handler)
 
+    _configured = True
+
+
+def bootstrap_logging() -> None:
+    global _bootstrap_enabled
+    _bootstrap_enabled = True
+    _configure_logging()
+
 
 if __name__ == "__main__":
-    setup_logging()
+    bootstrap_logging()
