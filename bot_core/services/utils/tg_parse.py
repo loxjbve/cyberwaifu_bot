@@ -3,7 +3,7 @@ from typing import Dict, Any, Optional
 
 from telegram import Update, User, Message, Chat
 from bot_core.services.utils.error import BotError, DatabaseError
-from bot_core.data_repository.conv_repo import UserRepository
+from bot_core.data_repository.gateways import UserGateway
 from utils import db_utils as db
 from utils.logging_utils import setup_logging
 
@@ -78,8 +78,8 @@ class UpdateParser:
         self.info.update(config)
 
         # --- 重构：使用 UserRepository 获取标准化的用户信息 ---
-        user_repo = UserRepository()
-        user_model = user_repo.get_user_by_id(user_id)
+        user_gateway = UserGateway()
+        user_model = user_gateway.get_by_id(user_id)
         if user_model:
             # 直接使用 UserModel 的属性更新 info 字典，不改变键名
             self.info.update(user_model.model_dump(by_alias=True))

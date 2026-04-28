@@ -12,7 +12,7 @@ from telegram.ext import ContextTypes
 from agent.llm_functions import analyze_image_for_rating
 import bot_core.services.utils.usage as fm
 from bot_core.services import messages
-from bot_core.data_repository.conv_repo import UserRepository
+from bot_core.data_repository.gateways import UserGateway
 from utils import db_utils as db
 from utils.config_utils import get_config
 from utils.logging_utils import setup_logging
@@ -152,8 +152,8 @@ class ImageAnalyzer:
         self.update = update
         self.context = context
         self.user_id = update.message.from_user.id
-        user_repo = UserRepository()
-        self.user = user_repo.get_user_by_id(self.user_id)
+        user_gateway = UserGateway()
+        self.user = user_gateway.get_by_id(self.user_id)
         if not self.user:
             raise ValueError(f"用户 {self.user_id} 不存在。")
         self.chat_id = update.message.chat.id

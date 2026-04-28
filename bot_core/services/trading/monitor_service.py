@@ -16,7 +16,7 @@ from .price_service import price_service
 from bot_core.data_repository.trading_repository import TradingRepository
 from utils.logging_utils import setup_logging
 from utils.db_utils import user_info_get
-from utils.config_utils import BOT_TOKEN
+from utils.config_utils import get_settings
 from telegram import Bot
 
 setup_logging()
@@ -352,8 +352,9 @@ class MonitorService:
     async def _send_liquidation_notification(self, user_id: int, group_id: int, message: str):
         """发送强平通知到群组"""
         try:
-            if BOT_TOKEN:
-                bot = Bot(token=BOT_TOKEN)
+            token = get_settings().telegram_token
+            if token:
+                bot = Bot(token=token)
                 await bot.send_message(
                     chat_id=group_id,
                     text=message,
@@ -540,8 +541,9 @@ class MonitorService:
             )
             
             # 发送通知到群组
-            if BOT_TOKEN:
-                bot = Bot(token=BOT_TOKEN)
+            token = get_settings().telegram_token
+            if token:
+                bot = Bot(token=token)
                 await bot.send_message(
                     chat_id=group_id,
                     text=message,

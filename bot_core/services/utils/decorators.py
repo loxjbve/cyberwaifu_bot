@@ -7,10 +7,10 @@ from telegram.ext import ContextTypes
 
 from utils.config_utils import DEFAULT_CHAR, DEFAULT_PRESET, DEFAULT_API
 from utils.config_utils import ADMIN_LIST as ADMIN
+from bot_core.data_repository.gateways import UserGateway
 from bot_core.services.utils.error import BotError, DatabaseError
 from bot_core.services.utils.tg_parse import update_info_get
 from utils import db_utils as db
-from bot_core.data_repository.conv_repo import UserRepository
 from utils.logging_utils import setup_logging
 
 setup_logging()
@@ -187,7 +187,7 @@ class Decorators:
                     return await func(update, context, *args, **kwargs)
 
                 user_id = info['user_id']
-                user_repo = UserRepository()
+                user_gateway = UserGateway()
 
                 # --- 核心修复：实时从 Telegram 获取最新的用户信息 ---
                 try:
@@ -203,7 +203,7 @@ class Decorators:
                     latest_username = info.get('username', '')
 
                 # 使用最新的信息获取或创建用户
-                user = user_repo.get_or_create_user(
+                user = user_gateway.get_or_create(
                     user_id=user_id,
                     first_name=latest_first_name,
                     last_name=latest_last_name,
@@ -212,7 +212,7 @@ class Decorators:
 
                 # 使用最新的信息检查并更新变化的个人资料
                 if user:
-                    user_repo.update_user_profile_if_changed(
+                    user_gateway.update_profile_if_changed(
                         user_id=user_id,
                         first_name=latest_first_name,
                         last_name=latest_last_name,

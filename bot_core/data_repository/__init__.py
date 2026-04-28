@@ -11,6 +11,7 @@ from .user_profiles_repository import UserProfilesRepository
 from .conversations_repository import ConversationsRepository
 from .groups_repository import GroupsRepository
 from .sign_repository import SignRepository
+from .gateways import ConversationGateway, DataAccessError, GroupGateway, UserGateway
 
 __all__ = [
     'UsersRepository',
@@ -18,7 +19,11 @@ __all__ = [
     'UserProfilesRepository',
     'ConversationsRepository',
     'GroupsRepository',
-    'SignRepository'
+    'SignRepository',
+    'ConversationGateway',
+    'DataAccessError',
+    'GroupGateway',
+    'UserGateway',
 ]
 
 # 创建便捷的访问方式
