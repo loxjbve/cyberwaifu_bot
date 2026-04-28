@@ -558,6 +558,83 @@ class GroupsRepository:
             }
 
     @staticmethod
+    def group_dialog_simple_export_data_get(group_id: int, ai_name: str = "AI") -> dict:
+        """
+        Export a simplified chronological message stream for a group.
+
+        Each stored user message becomes one entry, and each AI reply becomes
+        another entry using the same timestamp, so downstream consumers can
+        treat AI as a regular chat participant.
+        """
+        try:
+            group_rows = query_db(
+                "SELECT group_id, group_name FROM groups WHERE group_id = ? LIMIT 1",
+                (group_id,),
+            )
+            dialog_rows = query_db(
+                """
+                SELECT msg_user_name, msg_text, processed_response, raw_response, create_at
+                FROM group_dialogs
+                WHERE group_id = ?
+                ORDER BY create_at ASC, msg_id ASC
+                """,
+                (group_id,),
+            )
+
+            if not group_rows and not dialog_rows:
+                return {
+                    "success": False,
+                    "data": None,
+                    "error": "群组不存在或没有可导出的群聊记录",
+                }
+
+            group_name = ""
+            if group_rows and len(group_rows[0]) > 1:
+                group_name = group_rows[0][1] or ""
+
+            messages = []
+            for row in dialog_rows or []:
+                msg_user_name, msg_text, processed_response, raw_response, create_at = row
+
+                if msg_text:
+                    messages.append({
+                        "nickname": msg_user_name or "未知用户",
+                        "time": create_at,
+                        "content": msg_text,
+                    })
+
+                ai_content = processed_response or raw_response
+                if ai_content:
+                    messages.append({
+                        "nickname": ai_name,
+                        "time": create_at,
+                        "content": ai_content,
+                    })
+
+            return {
+                "success": True,
+                "data": {
+                    "export_meta": {
+                        "export_type": "group_dialogs_simple",
+                        "schema_version": 1,
+                        "exported_at": datetime.datetime.now().isoformat(),
+                        "group_id": group_id,
+                        "group_name": group_name,
+                        "ai_name": ai_name,
+                        "message_count": len(messages),
+                    },
+                    "messages": messages,
+                }
+            }
+        except Exception as e:
+            logger.error(f"导出简化群聊记录失败: {e}")
+            return {
+                "success": False,
+                "data": None,
+                "error": str(e)
+            }
+
+    @staticmethod
     def group_info_update(group_id: int, field: str, value: Any, increase: bool = False) -> dict:
         """
         更新 groups 表中指定群组的指定字段

@@ -182,6 +182,124 @@ class ExportCommand(BaseCommand):
         bot_admin_required=True,
     )
 
+    @staticmethod
+    def _serialize_payload(payload: dict) -> bytes:
+        return json.dumps(
+            payload,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            default=str,
+        ).encode("utf-8")
+
+    @classmethod
+    def _build_part_payload(
+        cls,
+        export_meta: dict,
+        part_messages: list[dict],
+        part_index: int,
+        total_parts: int,
+        start_index: int,
+        end_index: int,
+    ) -> dict:
+        part_meta = dict(export_meta)
+        part_meta["part_index"] = part_index
+        part_meta["total_parts"] = total_parts
+        part_meta["message_start"] = start_index + 1
+        part_meta["message_end"] = end_index + 1
+        part_meta["message_count"] = len(part_messages)
+        return {
+            "export_meta": part_meta,
+            "messages": part_messages,
+        }
+
+    @classmethod
+    def _fit_part_payloads(
+        cls,
+        export_meta: dict,
+        part_messages: list[dict],
+        max_bytes: int,
+    ) -> list[list[dict]]:
+        if not part_messages:
+            return [part_messages]
+
+        trial_payload = cls._build_part_payload(
+            export_meta=export_meta,
+            part_messages=part_messages,
+            part_index=1,
+            total_parts=1,
+            start_index=0,
+            end_index=len(part_messages) - 1,
+        )
+        if len(cls._serialize_payload(trial_payload)) <= max_bytes:
+            return [part_messages]
+
+        if len(part_messages) == 1:
+            raise ValueError("存在单条消息过大，无法拆分为可发送文件。")
+
+        mid = len(part_messages) // 2
+        return (
+            cls._fit_part_payloads(export_meta, part_messages[:mid], max_bytes)
+            + cls._fit_part_payloads(export_meta, part_messages[mid:], max_bytes)
+        )
+
+    @classmethod
+    def _split_export_payload(cls, export_data: dict, max_bytes: int) -> list[dict]:
+        export_meta = dict(export_data.get("export_meta") or {})
+        messages_list = list(export_data.get("messages") or [])
+
+        base_payload = {
+            "export_meta": export_meta,
+            "messages": [],
+        }
+        if len(cls._serialize_payload(base_payload)) > max_bytes:
+            raise ValueError("导出元数据过大，无法生成可发送文件。")
+
+        reserve_bytes = 8192
+        base_size = len(cls._serialize_payload(base_payload))
+        current_messages: list[dict] = []
+        current_size = base_size
+        estimated_parts: list[list[dict]] = []
+
+        for message in messages_list:
+            message_size = len(cls._serialize_payload(message))
+            comma_size = 1 if current_messages else 0
+            next_size = current_size + comma_size + message_size
+
+            if current_messages and next_size + reserve_bytes > max_bytes:
+                estimated_parts.append(current_messages)
+                current_messages = [message]
+                current_size = base_size + message_size
+            else:
+                current_messages.append(message)
+                current_size = next_size
+
+        if current_messages:
+            estimated_parts.append(current_messages)
+
+        fitted_parts: list[list[dict]] = []
+        for part_messages in estimated_parts:
+            fitted_parts.extend(
+                cls._fit_part_payloads(export_meta, part_messages, max_bytes)
+            )
+
+        payloads: list[dict] = []
+        total_parts = len(fitted_parts)
+        current_start_index = 0
+        for idx, part_messages in enumerate(fitted_parts, start=1):
+            payloads.append(
+                cls._build_part_payload(
+                    export_meta=export_meta,
+                    part_messages=part_messages,
+                    part_index=idx,
+                    total_parts=total_parts,
+                    start_index=current_start_index,
+                    end_index=current_start_index + len(part_messages) - 1,
+                )
+            )
+            current_start_index += len(part_messages)
+
+        return payloads
+
     async def handle(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if not update.message:
             return
@@ -199,7 +317,7 @@ class ExportCommand(BaseCommand):
             await update.message.reply_text("群聊id必须是有效整数，例如 -1001234567890。")
             return
 
-        export_result = GroupsRepository.group_dialog_export_data_get(group_id)
+        export_result = GroupsRepository.group_dialog_simple_export_data_get(group_id, ai_name="AI")
         if not export_result["success"] or not export_result.get("data"):
             await update.message.reply_text(
                 f"导出失败：{export_result.get('error', '未知错误')}"
@@ -207,35 +325,52 @@ class ExportCommand(BaseCommand):
             return
 
         export_data = export_result["data"]
-        export_text = json.dumps(export_data, ensure_ascii=False, indent=2, default=str)
-        export_bytes = export_text.encode("utf-8")
+        max_document_size = 45 * 1024 * 1024
 
-        # Telegram 普通文档发送有大小限制，超限时给出明确错误。
-        max_document_size = 49 * 1024 * 1024
-        if len(export_bytes) > max_document_size:
-            export_size_mb = len(export_bytes) / 1024 / 1024
+        try:
+            payloads = self._split_export_payload(export_data, max_document_size)
+        except ValueError as e:
             await update.message.reply_text(
-                f"导出失败：生成的 JSON 约 {export_size_mb:.2f} MB，超过 Telegram 文档发送限制。"
+                f"导出失败：{e}"
             )
             return
 
         safe_group_id = str(group_id).replace("-", "neg")
-        filename = f"group_{safe_group_id}_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         group_name = export_data["export_meta"].get("group_name") or str(group_id)
-        dialog_count = export_data["export_meta"].get("dialog_count", 0)
+        message_count = export_data["export_meta"].get("message_count", 0)
 
-        document_buffer = io.BytesIO(export_bytes)
-        document_buffer.seek(0)
+        if len(payloads) > 1:
+            await update.message.reply_text(
+                f"群聊 {group_name} 导出数据较大，将拆分为 {len(payloads)} 个 JSON 文件发送，共 {message_count} 条消息。"
+            )
 
-        await update.message.reply_document(
-            document=InputFile(document_buffer, filename=filename),
-            caption=f"群聊 {group_name} 导出完成，共 {dialog_count} 条记录。",
-        )
+        for payload in payloads:
+            part_index = payload["export_meta"]["part_index"]
+            total_parts = payload["export_meta"]["total_parts"]
+            filename = (
+                f"group_{safe_group_id}_export_{timestamp}_part"
+                f"{part_index:03d}_of_{total_parts:03d}.json"
+            )
+            export_bytes = self._serialize_payload(payload)
+            document_buffer = io.BytesIO(export_bytes)
+            document_buffer.seek(0)
+
+            await update.message.reply_document(
+                document=InputFile(document_buffer, filename=filename),
+                caption=(
+                    f"群聊 {group_name} 导出"
+                    f" ({part_index}/{total_parts})，"
+                    f"本文件 {payload['export_meta']['message_count']} 条消息。"
+                ),
+            )
+
         logger.info(
-            "管理员 %s 导出了群聊 %s，共 %s 条记录",
+            "管理员 %s 导出了群聊 %s，共 %s 条消息，拆分为 %s 个文件",
             update.effective_user.id if update.effective_user else "unknown",
             group_id,
-            dialog_count,
+            message_count,
+            len(payloads),
         )
 
 
