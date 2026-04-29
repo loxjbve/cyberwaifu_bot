@@ -11,7 +11,7 @@ def _build_update(text: str):
 
 
 def _build_context(username: str = "testbot"):
-    return SimpleNamespace(bot=SimpleNamespace(username=username), args=[])
+    return SimpleNamespace(bot=SimpleNamespace(username=username), args=[], bot_data={})
 
 
 def test_dispatcher_handles_multi_command_and_bot_mentions(monkeypatch):
@@ -23,20 +23,17 @@ def test_dispatcher_handles_multi_command_and_bot_mentions(monkeypatch):
     async def echo_handler(update, context):
         calls.append(("echo", list(context.args), update.message.text))
 
-    handlers = {
-        ("ping", "private"): ping_handler,
-        ("echo", "private"): echo_handler,
-    }
+    handlers = {("ping", "private"): ping_handler, ("echo", "private"): echo_handler}
 
-    monkeypatch.setattr(
-        "bot_core.message_handlers.command_dispatcher.CommandHandlers.get_command_handler",
-        lambda command, chat_type: handlers.get((command, chat_type)),
+    context = _build_context()
+    context.bot_data["plugin_manager"] = SimpleNamespace(
+        get_command_handler=lambda command, chat_type: handlers.get((command, chat_type))
     )
 
     handled = asyncio.run(
         CommandDispatcher.dispatch(
             _build_update("/ping one two && /echo@testbot hello && /echo@otherbot skip"),
-            _build_context(),
+            context,
             "private",
         )
     )
@@ -49,15 +46,15 @@ def test_dispatcher_handles_multi_command_and_bot_mentions(monkeypatch):
 
 
 def test_dispatcher_returns_false_when_no_matching_handler(monkeypatch):
-    monkeypatch.setattr(
-        "bot_core.message_handlers.command_dispatcher.CommandHandlers.get_command_handler",
-        lambda command, chat_type: None,
+    context = _build_context()
+    context.bot_data["plugin_manager"] = SimpleNamespace(
+        get_command_handler=lambda command, chat_type: None,
     )
 
     handled = asyncio.run(
         CommandDispatcher.dispatch(
             _build_update("/unknown value"),
-            _build_context(),
+            context,
             "group",
         )
     )

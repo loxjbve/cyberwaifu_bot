@@ -57,5 +57,9 @@
     "session_cookie_httponly": true,
     "session_cookie_samesite": "Lax",
     "permanent_session_lifetime": 3600
+  },
+  "plugins": {
+    "enabled": true,
+    "items": {}
   }
 }

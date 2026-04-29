@@ -6,13 +6,12 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from bot_core.message_handlers.command_dispatcher import CommandDispatcher
+from bot_core.plugin_system import resolve_plugin_manager
 from bot_core.services.conversation import GroupConv
 from bot_core.services.utils.decorators import Decorators
 from bot_core.services.utils.error import BotError
 from bot_core.services.utils.tg_parse import update_info_get
 from utils import db_utils as db
-
-from . import features
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +32,12 @@ async def group_msg_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             return
 
     try:
-        if await _handle_keyword_add_state(update, context, user_id):
+        plugin_manager = resolve_plugin_manager(context)
+        if plugin_manager and await plugin_manager.run_message_interceptors(
+            update,
+            context,
+            "group",
+        ):
             return
         await group_reply(update, context)
     except Exception as error:
@@ -44,34 +48,6 @@ async def group_msg_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             error,
             exc_info=True,
         )
-
-
-async def _handle_keyword_add_state(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-    user_id: int,
-) -> bool:
-    if not context.user_data:
-        return False
-
-    keyword_action = context.user_data.get("keyword_action")
-    is_adding = False
-    if isinstance(keyword_action, dict):
-        is_adding = keyword_action.get(user_id) == "add"
-    elif isinstance(keyword_action, str):
-        is_adding = keyword_action == "add"
-
-    if not is_adding:
-        return False
-
-    logger.info(
-        "Processing keyword add flow for user %s in group %s",
-        user_id,
-        update.message.chat.id,
-    )
-    await features.group_keyword_add(update, context)
-    return True
-
 
 async def group_reply(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     info = update_info_get(update)

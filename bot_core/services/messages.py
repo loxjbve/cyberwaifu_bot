@@ -718,7 +718,7 @@ class RealTimePositionService:
                     remaining_seconds = total_duration - (i + 1) * update_interval
 
                     # 获取最新的仓位信息 - 需要导入group模块来使用_get_enhanced_position_info方法
-                    from bot_core.command_handlers.group import PositionCommand
+                    from plugins.trading.commands import PositionCommand
                     position_cmd = PositionCommand()
                     position_data = await position_cmd._get_enhanced_position_info(user_id, group_id)
 

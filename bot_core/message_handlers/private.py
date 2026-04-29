@@ -4,11 +4,10 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from bot_core.message_handlers.command_dispatcher import CommandDispatcher
+from bot_core.plugin_system import resolve_plugin_manager
 from bot_core.services.conversation import PrivateConv
 from bot_core.services.utils.decorators import Decorators
 from utils.logging_utils import setup_logging
-
-from . import features
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -30,15 +29,12 @@ async def private_msg_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     try:
-        newchar_state = context.bot_data.get("newchar_state", {}).get(user_id)
-        if newchar_state:
-            logger.info("Processing new character flow for user %s", user_id)
-            await features.private_newchar(update, newchar_state, user_id)
-            return
-
-        if update.message.photo or update.message.sticker or update.message.animation:
-            logger.info("Processing media message for user %s", user_id)
-            await features.f_or_not(update, context)
+        plugin_manager = resolve_plugin_manager(context)
+        if plugin_manager and await plugin_manager.run_message_interceptors(
+            update,
+            context,
+            "private",
+        ):
             return
 
         userconv = PrivateConv(update, context)

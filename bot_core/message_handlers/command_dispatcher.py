@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from bot_core.command_handlers.regist import CommandHandlers
+from bot_core.plugin_system import resolve_plugin_manager
 from bot_core.services.utils.tg_parse import parse_commands_with_and
 
 logger = logging.getLogger(__name__)
@@ -36,7 +36,12 @@ class CommandDispatcher:
                 logger.debug("Skipping command for other bot: %s", command_token)
                 continue
 
-            handler = CommandHandlers.get_command_handler(command_name, chat_type)
+            plugin_manager = resolve_plugin_manager(context)
+            if not plugin_manager:
+                logger.error("No plugin manager available for command: %s", command_name)
+                return handled
+
+            handler = plugin_manager.get_command_handler(command_name, chat_type)
             if not handler:
                 continue
 

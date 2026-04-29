@@ -1,14 +1,10 @@
-# callback.py
-import importlib
-import inspect
+﻿# callback.py
 import logging
 import random
 import os
-import time
 from typing import Dict, Union
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Message, MaybeInaccessibleMessage
-from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
 import bot_core.services.messages
@@ -19,9 +15,7 @@ from bot_core.data_repository import (
     conversations, user_config, users, groups
 )
 from utils.logging_utils import setup_logging
-from .director_classes import DirectorMenu
 from .inline import Inline
-from bot_core.services.conversation import PrivateConv
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -947,111 +941,6 @@ class SettingsCallback(BaseCallback):
             logger.error(f"处理设置回调失败, data: {data}, 错误: {str(e)}")
             await safe_edit_message(query.message, "处理设置时发生错误。")
 
-
-class DirectorCallback(BaseCallback):
-    meta = CallbackMeta(
-        name='director',
-        callback_type='private',
-        trigger='director_',  # 确保匹配回调数据的前缀
-        enabled=True
-    )
-
-    def __init__(self):
-        super().__init__()
-        self.menu_manager = DirectorMenu()  # 初始化菜单管理器
-
-    async def handle_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE, data: str = '') -> None:
-        """
-        处理导演模式菜单回调，解析回调数据并执行对应逻辑。
-        """
-
-        query = update.callback_query
-        if query:
-            await query.answer()
-        user_id = update.effective_user.id if update.effective_user else 0
-
-        if data is None or data == "":
-            # 如果没有数据，显示主菜单
-            await self._send_menu(context, user_id, self.menu_manager.get_main_menu_id(), query=query)
-        else:
-            # 解析回调数据
-            if data.startswith("nav_"):
-                # 跳转到指定菜单
-                menu_id = data.replace("nav_", "")
-                await self._send_menu(context, user_id, menu_id, query=query)
-            elif data.startswith("act_"):
-                # 执行功能
-                stime = time.time()
-                action_data = data.replace("act_", "")
-                await self._handle_action(action_data, context, user_id, query, update)
-                etime = time.time()
-                print(f'执行{data}耗时{etime - stime}秒')
-            else:
-                logger.warning(f"未知的导演模式回调数据: {data}, user_id: {user_id}")
-                await bot_core.services.messages.send_message(context, user_id, "未知的操作，请返回主菜单。")
-                await self._send_menu(context, user_id, self.menu_manager.get_main_menu_id(), query=query)
-
-    async def _send_menu(self, context: ContextTypes.DEFAULT_TYPE, user_id: int, menu_id: str, query=None):
-        """发送指定菜单"""
-        menu_meta = self.menu_manager.get_menu_meta(menu_id)
-        if not menu_meta:
-            logger.warning(f"未知的菜单ID: {menu_id}, user_id: {user_id}")
-            await bot_core.services.messages.send_message(context, user_id, "菜单未找到，返回主菜单。")
-            menu_id = self.menu_manager.get_main_menu_id()
-            # menu_meta = self.menu_manager.get_menu_meta(menu_id)
-
-        reply_markup = self.menu_manager.get_menu_keyboard(menu_id)
-        description_text = self.menu_manager.get_menu_description_text(menu_id)
-        try:
-            if query:
-                await query.edit_message_text(description_text, reply_markup=reply_markup)
-            else:
-                await context.bot.send_message(chat_id=user_id, text=description_text, reply_markup=reply_markup, parse_mode="markdown")
-
-        except BadRequest as e:
-            logger.warning(f"编辑消息失败: {str(e)}, user_id: {user_id}")
-            await context.bot.send_message(chat_id=user_id, text=description_text, reply_markup=reply_markup, parse_mode="markdown")
-
-    async def _handle_action(self, action_data: str, context: ContextTypes.DEFAULT_TYPE, user_id: int, query,
-                             update=None):
-        """处理功能按钮的逻辑"""
-        # 获取按钮文本（从回调查询的消息中提取按钮文本可能不可靠，因此从菜单数据中查找）
-        button_text = "未知按钮"
-        conversation = PrivateConv(update, context) if update else None
-        for menu in self.menu_manager.menus.values():
-            for btn in menu.buttons:
-                if btn.btn_type == "action" and btn.target == action_data:
-                    button_text = btn.text
-                    break
-            if button_text != "未知按钮":
-                break
-
-        # 获取长字符串数据
-        long_data = self.menu_manager.get_action_data(action_data)
-        # 如果有特定逻辑，可以在这里处理
-        if conversation:
-            if action_data == "undo":
-                await conversation.undo()
-
-            elif action_data == "regen":
-                await conversation.regen()
-            elif action_data.startswith('camera'):
-                conversation.set_callback_data(long_data)
-                await conversation.response(False)
-            else:
-                conversation.set_callback_data(long_data)
-                await conversation.response()
-        else:
-            logger.warning(f"无法创建conversation对象，update为None，action_data: {action_data}")
-
-        # 执行完功能后，返回主菜单
-        try:
-            await context.bot.delete_message(chat_id=user_id, message_id=query.message.message_id)
-        except BadRequest as e:
-            logger.warning(f"删除消息失败: {str(e)}, user_id: {user_id} - 可能消息已删除或不可删除。")
-        await self._send_menu(context, user_id, self.menu_manager.get_main_menu_id())
-
-
 class CallbackHandler:
     """
     回调处理类，负责根据回调数据分发给相应的处理器。
@@ -1092,29 +981,10 @@ class CallbackHandler:
             raise BotError(f"处理回调{data} 失败: {str(e)}")
 
 
-def create_callback_handler(module_names: list[str]) -> CallbackHandler:
-    """
-    创建 CallbackHandler 实例并注入依赖。
-    """
-    callback_mapping: Dict[str, BaseCallback] = {}
-    for module_name in module_names:
-        try:
-            module = importlib.import_module(f'bot_core.callback_handlers.callback')  # 动态导入模块
-        except ImportError as e:
-            logger.warning(f"Error importing module {module_name}: {e}")  # 打印导入错误，方便调试
-            continue
+def create_callback_handler(module_names: list[str] | None = None):
+    from bot_core.plugin_system import (
+        create_callback_handler as create_plugin_callback_handler,
+        get_default_plugin_manager,
+    )
 
-        for name, obj in inspect.getmembers(module):  # 扫描模块中的所有成员
-            if inspect.isclass(obj) and issubclass(obj, BaseCallback) and obj != BaseCallback:  # 检查是否是BaseCallback的子类
-                try:
-                    instance = obj()  # 创建回调类实例
-                    if hasattr(instance, 'meta') and hasattr(instance.meta, 'trigger'):  # 确保有meta和trigger属性
-                        if instance.meta.enabled:  # 确保已激活
-                            callback_mapping[instance.meta.trigger] = instance  # 使用预处理过的handler
-                            logger.debug(f"注册回调处理器: {name}, trigger: {instance.meta.trigger}")  # 添加日志
-                    else:
-                        print(f"Callback {name} 缺少 meta 或 trigger 属性")
-                except Exception as e:
-                    logger.debug(f"Error creating CallbackHandler for {name}: {e}")  # 打印创建实例或CommandHandler错误，方便调试
-                    continue
-    return CallbackHandler(callback_mapping)
+    return create_plugin_callback_handler(get_default_plugin_manager())
