@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import sys
+import threading
 from typing import Union
 
 from flask import Blueprint, Response, current_app, jsonify, request, send_from_directory, session
@@ -32,6 +34,21 @@ def _system_config_service() -> SystemConfigService:
         settings_provider=get_settings,
         settings_reloader=load_settings,
     )
+
+
+def _restart_current_process(delay_seconds: float = 1.0) -> None:
+    def restart() -> None:
+        app_logger.warning("Restarting service process via web admin request")
+        try:
+            sys.stdout.flush()
+            sys.stderr.flush()
+        except Exception:
+            pass
+        os.execv(sys.executable, [sys.executable, *sys.argv])
+
+    timer = threading.Timer(delay_seconds, restart)
+    timer.daemon = False
+    timer.start()
 
 
 @api_bp.route("/message_page/<group_id>/<msg_id>")
@@ -189,6 +206,22 @@ def api_system_config_put():
         return jsonify({"error": str(error)}), 400
     except Exception as error:
         app_logger.error("Failed to save system config: %s", error)
+        return jsonify({"error": str(error)}), 500
+
+
+@api_bp.route("/system/restart", methods=["POST"])
+@admin_required
+def api_system_restart():
+    try:
+        _restart_current_process()
+        return jsonify(
+            {
+                "success": True,
+                "message": "重启请求已提交，当前 Python 进程将在约 1 秒后重启。",
+            }
+        )
+    except Exception as error:
+        app_logger.error("Failed to restart service process: %s", error)
         return jsonify({"error": str(error)}), 500
 
 

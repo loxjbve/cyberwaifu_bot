@@ -5,6 +5,7 @@ import { showToast } from '../core/toast.js';
 const API_ENDPOINTS = {
     load: '/api/system-config',
     save: '/api/system-config',
+    restart: '/api/system/restart',
 };
 
 let pageState = null;
@@ -141,7 +142,7 @@ function renderRestartNotice(payload) {
     const labelList = values.map((key) => labels[key] || key);
     notice.textContent = labelList.length
         ? labelList.join(' | ')
-        : '褰撳墠鎵€鏈夎皟鏁撮兘鍙姩鎬佺敓鏁堛€?';
+        : '当前没有标记为必须重启的字段。';
 }
 
 function renderApiItem(item = {}) {
@@ -149,33 +150,33 @@ function renderApiItem(item = {}) {
     return createElementFromHtml(`
         <div class="api-item" data-api-item>
             <div class="api-item-grid">
-                <div class="form-group">
+                <div class="form-group api-name-field">
                     <label class="form-label">name</label>
                     <input class="form-input" data-api-field="name" value="${escapeHtml(item.name || '')}">
                 </div>
-                <div class="form-group">
+                <div class="form-group api-key-field">
                     <label class="form-label">key</label>
                     <input class="form-input api-key-input" data-api-field="key" data-sensitive="true" type="${type}" value="${escapeHtml(item.key || '')}">
                 </div>
-                <div class="form-group">
+                <div class="form-group api-url-field">
                     <label class="form-label">url</label>
                     <input class="form-input" data-api-field="url" value="${escapeHtml(item.url || '')}">
                 </div>
-                <div class="form-group">
+                <div class="form-group api-model-field">
                     <label class="form-label">model</label>
                     <input class="form-input" data-api-field="model" value="${escapeHtml(item.model || '')}">
                 </div>
-                <div class="form-group">
+                <div class="form-group api-number-field">
                     <label class="form-label">group</label>
                     <input class="form-input" data-api-field="group" data-cast="int" type="number" value="${escapeHtml(item.group ?? 0)}">
                 </div>
-                <div class="form-group">
+                <div class="form-group api-number-field">
                     <label class="form-label">multiple</label>
                     <input class="form-input" data-api-field="multiple" data-cast="int" type="number" min="1" value="${escapeHtml(item.multiple ?? 1)}">
                 </div>
-            </div>
-            <div class="api-item-actions">
-                <button type="button" class="btn-danger btn-sm" data-action="remove-api-item">鍒犻櫎</button>
+                <div class="api-item-actions">
+                    <button type="button" class="btn-danger btn-sm" data-action="remove-api-item">删除</button>
+                </div>
             </div>
         </div>
     `);
@@ -267,7 +268,7 @@ function setSensitiveVisibility(nextVisible) {
     });
     const toggleButton = qs('#toggleSensitiveBtn');
     if (toggleButton) {
-        toggleButton.textContent = sensitiveVisible ? '闅愯棌鏁忔劅瀛楁' : '鏄剧ず鏁忔劅瀛楁';
+        toggleButton.textContent = sensitiveVisible ? '隐藏密钥' : '显示密钥';
     }
 }
 
@@ -294,7 +295,7 @@ function applyPayload(payload) {
         error.hidden = true;
     }
     if (configLocalPathText) {
-        configLocalPathText.textContent = `褰撳墠鍐欏叆鏂囦欢: ${payload.config_local_path}`;
+        configLocalPathText.textContent = `当前写入文件: ${payload.config_local_path}`;
     }
 }
 
@@ -312,7 +313,7 @@ async function saveSystemConfig(button) {
     const originalMarkup = button?.innerHTML || '';
     if (button) {
         button.disabled = true;
-        button.innerHTML = '<span class="loading-spinner-small"></span><span>淇濆瓨涓?/span>';
+        button.innerHTML = '<span class="loading-spinner-small"></span><span>保存中...</span>';
     }
 
     try {
@@ -327,14 +328,44 @@ async function saveSystemConfig(button) {
             const labels = result.restart_required_fields
                 .map((key) => result.restart_required_labels?.[key] || key)
                 .join(' | ');
-            showToast(`閰嶇疆宸蹭繚瀛橈紝浣嗕互涓嬮」闇€瑕侀噸鍚敓鏁? ${labels}`, 'info');
+            showToast(`配置已保存；这些变更需要重启生效: ${labels}`, 'info');
         } else {
-            showToast('绯荤粺閰嶇疆宸蹭繚瀛樺埌 config_local.json', 'success');
+            showToast('系统配置已保存到 config_local.json', 'success');
         }
         await loadSystemConfig();
     } catch (error) {
-        showToast(`淇濆瓨澶辫触锛?${error.message}`, 'error');
+        showToast(`保存失败: ${error.message}`, 'error');
     } finally {
+        if (button) {
+            button.disabled = false;
+            button.innerHTML = originalMarkup;
+        }
+    }
+}
+
+async function restartServices(button) {
+    if (!window.confirm('确认重启当前服务进程？页面会短暂断开，稍后自动刷新。')) {
+        return;
+    }
+
+    const originalMarkup = button?.innerHTML || '';
+    if (button) {
+        button.disabled = true;
+        button.innerHTML = '<span class="loading-spinner-small"></span><span>重启中...</span>';
+    }
+
+    try {
+        const result = await requestJson(API_ENDPOINTS.restart, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({}),
+        });
+        showToast(result.message || '已提交重启请求，服务即将重启。', 'info', { duration: 5000 });
+        window.setTimeout(() => {
+            window.location.reload();
+        }, 6000);
+    } catch (error) {
+        showToast(`重启失败: ${error.message}`, 'error');
         if (button) {
             button.disabled = false;
             button.innerHTML = originalMarkup;
@@ -347,23 +378,28 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!pageRoot) {
         return;
     }
+    const eventRoot = document;
 
-    delegate(pageRoot, 'click', '[data-action="toggle-sensitive"]', () => {
+    delegate(eventRoot, 'click', '[data-action="toggle-sensitive"]', () => {
         setSensitiveVisibility(!sensitiveVisible);
     });
 
-    delegate(pageRoot, 'click', '[data-action="save-system-config"]', async (_event, button) => {
+    delegate(eventRoot, 'click', '[data-action="save-system-config"]', async (_event, button) => {
         await saveSystemConfig(button);
     });
 
-    delegate(pageRoot, 'click', '[data-action="add-api-item"]', () => {
+    delegate(eventRoot, 'click', '[data-action="restart-services"]', async (_event, button) => {
+        await restartServices(button);
+    });
+
+    delegate(eventRoot, 'click', '[data-action="add-api-item"]', () => {
         const container = qs('#apiList');
         container?.appendChild(renderApiItem());
         syncApiNameOptionsFromForm();
         setSensitiveVisibility(sensitiveVisible);
     });
 
-    delegate(pageRoot, 'click', '[data-action="remove-api-item"]', (_event, button) => {
+    delegate(eventRoot, 'click', '[data-action="remove-api-item"]', (_event, button) => {
         const item = button.closest('[data-api-item]');
         item?.remove();
         if (!document.querySelector('[data-api-item]')) {
@@ -372,7 +408,7 @@ document.addEventListener('DOMContentLoaded', () => {
         syncApiNameOptionsFromForm();
     });
 
-    delegate(pageRoot, 'input', '[data-api-field="name"]', () => {
+    delegate(eventRoot, 'input', '[data-api-field="name"]', () => {
         syncApiNameOptionsFromForm();
     });
 

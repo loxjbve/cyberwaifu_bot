@@ -9,17 +9,20 @@
 
 {% block page_title %}系统配置{% endblock %}
 {% block page_subtitle %}
-    <p class="page-subtitle">结构化管理 <code>config_local.json</code>，不再直接编辑系统配置 JSON。</p>
+    <p class="page-subtitle">结构化管理 <code>config_local.json</code>，保存后会写入本地覆盖配置。</p>
 {% endblock %}
 
 {% block page_actions %}
     <div class="toolbar-actions">
         <a href="{{ url_for('admin.config_files_management') }}" class="btn-glass btn-sm">配置文件</a>
         <button type="button" class="btn-glass btn-sm" id="toggleSensitiveBtn" data-action="toggle-sensitive">
-            显示敏感字段
+            显示密钥
+        </button>
+        <button type="button" class="btn-glass btn-sm restart-action" id="restartServicesBtn" data-action="restart-services">
+            重启服务
         </button>
         <button type="button" class="btn-primary btn-sm" id="saveSystemConfigBtn" data-action="save-system-config">
-            保存系统配置
+            保存配置
         </button>
     </div>
 {% endblock %}
@@ -35,7 +38,7 @@
                     </div>
                     <div class="header-text">
                         <h3>系统配置</h3>
-                        <p class="header-subtitle">保存后仅写入 <code>config/config_local.json</code></p>
+                        <p class="header-subtitle">保存后写入 <code>config/config_local.json</code>；需要生效时可一键重启当前服务进程。</p>
                     </div>
                 </div>
             </div>
@@ -52,14 +55,16 @@
             </div>
 
             <form id="systemConfigForm" class="modern-form" hidden>
-                <div class="form-info-banner">
-                    <i class="fas fa-info-circle"></i>
-                    <span id="configLocalPathText"></span>
-                </div>
+                <div class="system-config-alerts">
+                    <div class="form-info-banner compact-banner">
+                        <i class="fas fa-info-circle"></i>
+                        <span id="configLocalPathText"></span>
+                    </div>
 
-                <div class="restart-banner" id="restartBanner">
-                    <div class="restart-banner-title">这些配置修改后通常需要重启进程</div>
-                    <div class="restart-banner-copy" id="restartFieldsNotice"></div>
+                    <div class="restart-banner" id="restartBanner">
+                        <div class="restart-banner-title">这些配置修改后通常需要重启进程</div>
+                        <div class="restart-banner-copy" id="restartFieldsNotice"></div>
+                    </div>
                 </div>
 
                 <div class="system-config-grid">
@@ -75,13 +80,15 @@
                             <label class="form-label" for="adminIds">ADMIN</label>
                             <input class="form-input" id="adminIds" data-config-path="auth.ADMIN" data-format="admin-ids" placeholder="7007822593, 123456789">
                         </div>
-                        <div class="form-group">
-                            <label class="form-label" for="adminPassword">WEB_PW</label>
-                            <input class="form-input" id="adminPassword" data-config-path="auth.WEB_PW" data-sensitive="true" type="password">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label" for="viewerPassword">VIEWER_PW</label>
-                            <input class="form-input" id="viewerPassword" data-config-path="auth.VIEWER_PW" data-sensitive="true" type="password">
+                        <div class="field-row">
+                            <div class="form-group">
+                                <label class="form-label" for="adminPassword">WEB_PW</label>
+                                <input class="form-input" id="adminPassword" data-config-path="auth.WEB_PW" data-sensitive="true" type="password">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="viewerPassword">VIEWER_PW</label>
+                                <input class="form-input" id="viewerPassword" data-config-path="auth.VIEWER_PW" data-sensitive="true" type="password">
+                            </div>
                         </div>
                     </section>
 
@@ -135,13 +142,15 @@
                             <label class="form-label" for="analysisDefaultApi">analysis.default_api</label>
                             <select class="form-control" id="analysisDefaultApi" data-config-path="analysis.default_api" data-option-source="api_names"></select>
                         </div>
-                        <div class="form-group">
-                            <label class="form-label" for="imageDefaultApi">fuck_or_not_api</label>
-                            <select class="form-control" id="imageDefaultApi" data-config-path="fuck_or_not_api" data-option-source="api_names"></select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label" for="qCommandApi">q_command_api</label>
-                            <select class="form-control" id="qCommandApi" data-config-path="q_command_api" data-option-source="api_names"></select>
+                        <div class="field-row">
+                            <div class="form-group">
+                                <label class="form-label" for="imageDefaultApi">fuck_or_not_api</label>
+                                <select class="form-control" id="imageDefaultApi" data-config-path="fuck_or_not_api" data-option-source="api_names"></select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="qCommandApi">q_command_api</label>
+                                <select class="form-control" id="qCommandApi" data-config-path="q_command_api" data-option-source="api_names"></select>
+                            </div>
                         </div>
                         <div class="field-row">
                             <div class="form-group">
@@ -167,29 +176,37 @@
                         <div class="section-header">
                             <h4 class="section-title">默认行为</h4>
                         </div>
-                        <div class="form-group">
-                            <label class="form-label" for="defaultCharacter">user.default_char</label>
-                            <select class="form-control" id="defaultCharacter" data-config-path="user.default_char" data-option-source="characters"></select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label" for="defaultPreset">user.default_preset</label>
-                            <select class="form-control" id="defaultPreset" data-config-path="user.default_preset" data-option-source="presets"></select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label" for="defaultStream">user.default_stream</label>
-                            <select class="form-control" id="defaultStream" data-config-path="user.default_stream">
-                                <option value="no">no</option>
-                                <option value="yes">yes</option>
-                            </select>
+                        <div class="field-row">
+                            <div class="form-group">
+                                <label class="form-label" for="defaultCharacter">user.default_char</label>
+                                <select class="form-control" id="defaultCharacter" data-config-path="user.default_char" data-option-source="characters"></select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="defaultPreset">user.default_preset</label>
+                                <select class="form-control" id="defaultPreset" data-config-path="user.default_preset" data-option-source="presets"></select>
+                            </div>
                         </div>
                         <div class="field-row">
+                            <div class="form-group">
+                                <label class="form-label" for="defaultStream">user.default_stream</label>
+                                <select class="form-control" id="defaultStream" data-config-path="user.default_stream">
+                                    <option value="no">no</option>
+                                    <option value="yes">yes</option>
+                                </select>
+                            </div>
                             <div class="form-group">
                                 <label class="form-label" for="defaultFrequency">user.default_frequency</label>
                                 <input class="form-input" id="defaultFrequency" data-config-path="user.default_frequency" data-cast="int" type="number" min="0">
                             </div>
+                        </div>
+                        <div class="field-row">
                             <div class="form-group">
                                 <label class="form-label" for="defaultBalance">user.default_balance</label>
                                 <input class="form-input" id="defaultBalance" data-config-path="user.default_balance" data-cast="float" type="number" step="0.1" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="defaultGroupRate">group.default_rate</label>
+                                <input class="form-input" id="defaultGroupRate" data-config-path="group.default_rate" data-cast="float" type="number" step="0.01" min="0" max="1">
                             </div>
                         </div>
                         <div class="field-row">
@@ -204,17 +221,13 @@
                         </div>
                         <div class="field-row">
                             <div class="form-group">
-                                <label class="form-label" for="defaultGroupRate">group.default_rate</label>
-                                <input class="form-input" id="defaultGroupRate" data-config-path="group.default_rate" data-cast="float" type="number" step="0.01" min="0" max="1">
-                            </div>
-                            <div class="form-group">
                                 <label class="form-label" for="signDefaultFrequency">sign.default_frequency</label>
                                 <input class="form-input" id="signDefaultFrequency" data-config-path="sign.default_frequency" data-cast="int" type="number" min="0">
                             </div>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label" for="signMaxFrequency">sign.max_frequency</label>
-                            <input class="form-input" id="signMaxFrequency" data-config-path="sign.max_frequency" data-cast="int" type="number" min="1">
+                            <div class="form-group">
+                                <label class="form-label" for="signMaxFrequency">sign.max_frequency</label>
+                                <input class="form-input" id="signMaxFrequency" data-config-path="sign.max_frequency" data-cast="int" type="number" min="1">
+                            </div>
                         </div>
                     </section>
 
@@ -222,21 +235,25 @@
                         <div class="section-header">
                             <h4 class="section-title">数据与路径</h4>
                         </div>
-                        <div class="form-group">
-                            <label class="form-label" for="databasePath">database.default_path</label>
-                            <input class="form-input" id="databasePath" data-config-path="database.default_path">
+                        <div class="field-row">
+                            <div class="form-group">
+                                <label class="form-label" for="databasePath">database.default_path</label>
+                                <input class="form-input" id="databasePath" data-config-path="database.default_path">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="databaseMaxConnections">database.max_connections</label>
+                                <input class="form-input" id="databaseMaxConnections" data-config-path="database.max_connections" data-cast="int" type="number" min="1">
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label class="form-label" for="databaseMaxConnections">database.max_connections</label>
-                            <input class="form-input" id="databaseMaxConnections" data-config-path="database.max_connections" data-cast="int" type="number" min="1">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label" for="charactersPath">paths.characters_path</label>
-                            <input class="form-input" id="charactersPath" data-config-path="paths.characters_path">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label" for="promptPath">paths.prompt_path</label>
-                            <input class="form-input" id="promptPath" data-config-path="paths.prompt_path">
+                        <div class="field-row">
+                            <div class="form-group">
+                                <label class="form-label" for="charactersPath">paths.characters_path</label>
+                                <input class="form-input" id="charactersPath" data-config-path="paths.characters_path">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="promptPath">paths.prompt_path</label>
+                                <input class="form-input" id="promptPath" data-config-path="paths.prompt_path">
+                            </div>
                         </div>
                     </section>
 
@@ -244,26 +261,31 @@
                         <div class="section-header">
                             <h4 class="section-title">Features / Plugins</h4>
                         </div>
-                        <label class="checkbox-row">
-                            <input type="checkbox" data-config-path="features.start_web">
-                            <span>features.start_web</span>
-                        </label>
-                        <label class="checkbox-row">
-                            <input type="checkbox" data-config-path="features.start_monitor">
-                            <span>features.start_monitor</span>
-                        </label>
-                        <label class="checkbox-row">
-                            <input type="checkbox" data-config-path="plugins.enabled">
-                            <span>plugins.enabled</span>
-                        </label>
-                        <label class="checkbox-row">
-                            <input type="checkbox" data-config-path="plugins.items.trading.lifecycle.monitor.enabled">
-                            <span>trading.lifecycle.monitor.enabled</span>
-                        </label>
+                        <div class="checkbox-grid">
+                            <label class="checkbox-row">
+                                <input type="checkbox" data-config-path="features.start_web">
+                                <span>features.start_web</span>
+                            </label>
+                            <label class="checkbox-row">
+                                <input type="checkbox" data-config-path="features.start_monitor">
+                                <span>features.start_monitor</span>
+                            </label>
+                            <label class="checkbox-row">
+                                <input type="checkbox" data-config-path="plugins.enabled">
+                                <span>plugins.enabled</span>
+                            </label>
+                            <label class="checkbox-row">
+                                <input type="checkbox" data-config-path="plugins.items.trading.lifecycle.monitor.enabled">
+                                <span>trading.lifecycle.monitor.enabled</span>
+                            </label>
+                        </div>
                     </section>
                 </div>
 
                 <div class="system-config-footer">
+                    <button type="button" class="btn-glass restart-action" data-action="restart-services">
+                        重启服务
+                    </button>
                     <button type="button" class="btn-primary" data-action="save-system-config">
                         保存到 config_local.json
                     </button>
