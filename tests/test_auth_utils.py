@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from flask import Blueprint, Flask
 import pytest
 
 from utils import auth_utils
 from web.blueprints.auth import auth_bp
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 @pytest.fixture
@@ -13,9 +17,17 @@ def auth_app(monkeypatch, settings_factory):
     monkeypatch.setattr(auth_utils, "get_settings", lambda force_reload=False: settings)
     auth_utils.SecurityManager._login_attempts.clear()
 
-    app = Flask(__name__)
+    app = Flask(
+        __name__,
+        template_folder=str(PROJECT_ROOT / "web" / "templates"),
+        static_folder=str(PROJECT_ROOT / "web" / "static"),
+    )
     app.config["TESTING"] = True
     app.secret_key = settings.web.secret_key
+
+    @app.context_processor
+    def inject_globals():
+        return {"moment": lambda: type("Moment", (), {"timestamp": lambda self: 0})()}
 
     admin_bp = Blueprint("admin", __name__)
 
@@ -70,3 +82,14 @@ def test_expired_session_redirects_to_login(client, monkeypatch):
     response = client.get("/viewer")
     assert response.status_code == 302
     assert "/login" in response.headers["Location"]
+
+
+def test_login_page_renders_expected_shell(client):
+    response = client.get("/login")
+    body = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert 'class="login-shell"' in body
+    assert 'class="login-brand"' in body
+    assert 'class="btn-primary btn-login"' in body
+    assert 'class="password-icon"' in body

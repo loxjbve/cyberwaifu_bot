@@ -4,6 +4,7 @@ Unified configuration loading and compatibility helpers.
 
 from __future__ import annotations
 
+from copy import deepcopy
 import json
 import logging
 import os
@@ -86,6 +87,25 @@ def load_json_file(file_path: str) -> Dict[str, Any]:
 
     with open(file_path, "r", encoding="utf-8") as file:
         return json.load(file)
+
+
+def _normalize_source_config(source: Dict[str, Any]) -> Dict[str, Any]:
+    normalized = deepcopy(source)
+    auth = normalized.get("auth")
+    if not isinstance(auth, dict):
+        auth = {}
+        normalized["auth"] = auth
+
+    legacy_auth_mapping = {
+        "ADMIN": "ADMIN",
+        "WEB_PW": "WEB_PW",
+        "VIEWER_PW": "VIEWER_PW",
+    }
+    for legacy_key, auth_key in legacy_auth_mapping.items():
+        if auth_key not in auth and legacy_key in normalized:
+            auth[auth_key] = deepcopy(normalized[legacy_key])
+
+    return normalized
 
 
 def _deep_update(target: Dict[str, Any], source: Dict[str, Any]) -> None:
@@ -194,16 +214,19 @@ def load_settings(
     _user_config = {}
     try:
         if os.path.exists(resolved_config_path):
-            _deep_update(_user_config, load_json_file(resolved_config_path))
+            _deep_update(_user_config, _normalize_source_config(load_json_file(resolved_config_path)))
             logger.info("Loaded config from %s", resolved_config_path)
         if os.path.exists(resolved_local_path):
-            _deep_update(_user_config, load_json_file(resolved_local_path))
+            _deep_update(
+                _user_config,
+                _normalize_source_config(load_json_file(resolved_local_path)),
+            )
             logger.info("Loaded local config from %s", resolved_local_path)
     except Exception as error:
         logger.error("Failed to load user config: %s", error)
         _user_config = {}
 
-    _config = dict(_default_config)
+    _config = deepcopy(_normalize_source_config(_default_config))
     _deep_update(_config, _user_config)
 
     _settings = _build_settings(

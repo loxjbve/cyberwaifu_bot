@@ -4,10 +4,8 @@ from utils.logging_utils import setup_logging
 from bot_core.command_handlers.base import BaseCommand, CommandMeta
 from bot_core.services.messages import MessageDeletionService, RealTimePositionService
 from bot_core.services.trading.facade import trading_facade
-from utils.config_utils import get_config
 from telegram import Update
 
-fuck_api = get_config("fuck_or_not_api", "gemini-2.5")
 setup_logging()
 logger = logging.getLogger(__name__)
 

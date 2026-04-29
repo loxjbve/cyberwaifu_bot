@@ -1,128 +1,279 @@
 {% extends "base.html" %}
 
-{% block title %}配置文件管理 - CyberWaifu Bot{% endblock %}
-{% block page_id %}config{% endblock %}
+{% block title %}系统配置 - CyberWaifu Bot{% endblock %}
+{% block page_id %}system-config{% endblock %}
 
 {% block extra_css %}
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/jsoneditor/9.10.2/jsoneditor.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/config.css', v=moment().timestamp() | int) }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/system_config.css', v=moment().timestamp() | int) }}">
 {% endblock %}
 
-{% block page_title %}配置管理{% endblock %}
+{% block page_title %}系统配置{% endblock %}
+{% block page_subtitle %}
+    <p class="page-subtitle">结构化管理 <code>config_local.json</code>，不再直接编辑系统配置 JSON。</p>
+{% endblock %}
+
+{% block page_actions %}
+    <div class="toolbar-actions">
+        <a href="{{ url_for('admin.config_files_management') }}" class="btn-glass btn-sm">配置文件</a>
+        <button type="button" class="btn-glass btn-sm" id="toggleSensitiveBtn" data-action="toggle-sensitive">
+            显示敏感字段
+        </button>
+        <button type="button" class="btn-primary btn-sm" id="saveSystemConfigBtn" data-action="save-system-config">
+            保存系统配置
+        </button>
+    </div>
+{% endblock %}
 
 {% block content %}
-<div class="config-layout" data-page="config">
-    <!-- 文件列表侧边栏 -->
-    <aside class="config-sidebar">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h3 class="h5">配置文件</h3>
-            <button class="btn btn-primary btn-sm" id="showCreateModalBtn" type="button" data-action="open-create-file-modal">
-                <i class="fas fa-plus"></i> 新建
-            </button>
-        </div>
-        <button class="btn btn-secondary btn-sm w-100 mb-3" id="refreshFileListBtn" type="button" data-action="refresh-config-files">
-            <i class="fas fa-sync-alt"></i> 刷新列表
-        </button>
-        <div id="fileList" class="file-list" aria-live="polite">
-            <div class="text-center p-3">
-                <div class="spinner"></div>
-                <p>加载中...</p>
-            </div>
-        </div>
-    </aside>
-
-    <!-- 编辑器区域 -->
-    <main class="config-editor-area">
-        <div class="editor-toolbar">
-            <div class="file-info">
-                <h4 class="h6 mb-0" id="currentFileName">请选择一个文件进行编辑</h4>
-                <div class="path" id="currentFileInfo"></div>
-            </div>
-            <div class="actions">
-                <button class="btn btn-success btn-sm" id="saveBtn" type="button" data-action="save-config-file" disabled>
-                    <i class="fas fa-save"></i> 保存
-                </button>
-                <button class="btn btn-danger btn-sm" id="deleteBtn" type="button" data-action="delete-config-file" disabled>
-                    <i class="fas fa-trash"></i> 删除
-                </button>
-            </div>
-        </div>
-
-        <div class="editor-main">
-            <div class="editor-tabs" id="editorModeTabs">
-                <button class="tab-btn active" data-mode="visual">
-                    <i class="fas fa-eye"></i> 可视化编辑
-                </button>
-                <button class="tab-btn" data-mode="code">
-                    <i class="fas fa-code"></i> 代码编辑
-                </button>
-            </div>
-
-            <div class="editor-content">
-                <div id="visual-editor" class="editor-pane active">
-                    <div id="jsoneditor" class="jsoneditor-container"></div>
-                </div>
-                <div id="code-editor" class="editor-pane">
-                    <textarea id="codeEditor" placeholder="请选择一个配置文件进行编辑..."></textarea>
+<div class="content-wrapper system-config-page" data-page="system-config">
+    <div class="card">
+        <div class="card-header">
+            <div class="header-container">
+                <div class="header-title">
+                    <div class="header-icon">
+                        <i class="fas fa-sliders-h"></i>
+                    </div>
+                    <div class="header-text">
+                        <h3>系统配置</h3>
+                        <p class="header-subtitle">保存后仅写入 <code>config/config_local.json</code></p>
+                    </div>
                 </div>
             </div>
         </div>
-    </main>
-</div>
+        <div class="card-body">
+            <div id="systemConfigLoading" class="loading-state">
+                <div class="loading-spinner"></div>
+                <span>正在加载系统配置...</span>
+            </div>
 
-<!-- 创建文件模态框 -->
-<div id="createFileModal" class="modal-overlay" aria-hidden="true" data-modal="create-config-file">
-    <div class="modal-container">
-        <div class="modal-header">
-            <h5 class="modal-title">创建新配置文件</h5>
-            <button type="button" class="btn-close" data-modal-close></button>
-        </div>
-        <div class="modal-body">
-            <form id="createFileForm">
-                <div class="form-group">
-                    <label for="fileCategory" class="form-label">文件分类</label>
-                    <select class="form-control" id="fileCategory" required>
-                        <option value="">请选择分类</option>
-                        <option value="characters">角色配置 (characters)</option>
-                        <option value="config">系统配置 (config)</option>
-                        <option value="prompts">提示词 (prompts)</option>
-                        <option value="agent_docs">智能体文档 (agent/docs)</option>
-                    </select>
+            <div id="systemConfigError" class="error-state" hidden>
+                <h3>无法加载系统配置</h3>
+                <p id="systemConfigErrorText"></p>
+            </div>
+
+            <form id="systemConfigForm" class="modern-form" hidden>
+                <div class="form-info-banner">
+                    <i class="fas fa-info-circle"></i>
+                    <span id="configLocalPathText"></span>
                 </div>
-                <div class="form-group">
-                    <label for="fileName" class="form-label">文件名</label>
-                    <input type="text" class="form-control" id="fileName" placeholder="不需要包含.json后缀" required>
+
+                <div class="restart-banner" id="restartBanner">
+                    <div class="restart-banner-title">这些配置修改后通常需要重启进程</div>
+                    <div class="restart-banner-copy" id="restartFieldsNotice"></div>
                 </div>
-                <div class="form-group">
-                    <label for="fileTemplate" class="form-label">初始模板</label>
-                    <select class="form-control" id="fileTemplate">
-                        <option value="empty">空对象 {}</option>
-                        <option value="character">角色模板</option>
-                        <option value="config">配置模板</option>
-                        <option value="prompt">提示词模板</option>
-                        <option value="agent_docs">智能体文档模板</option>
-                    </select>
+
+                <div class="system-config-grid">
+                    <section class="system-config-section">
+                        <div class="section-header">
+                            <h4 class="section-title">Bot / Auth</h4>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="tgToken">TG_TOKEN</label>
+                            <input class="form-input" id="tgToken" data-config-path="TG_TOKEN" data-sensitive="true" type="password">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="adminIds">ADMIN</label>
+                            <input class="form-input" id="adminIds" data-config-path="auth.ADMIN" data-format="admin-ids" placeholder="7007822593, 123456789">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="adminPassword">WEB_PW</label>
+                            <input class="form-input" id="adminPassword" data-config-path="auth.WEB_PW" data-sensitive="true" type="password">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="viewerPassword">VIEWER_PW</label>
+                            <input class="form-input" id="viewerPassword" data-config-path="auth.VIEWER_PW" data-sensitive="true" type="password">
+                        </div>
+                    </section>
+
+                    <section class="system-config-section">
+                        <div class="section-header">
+                            <h4 class="section-title">Web / Security</h4>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="flaskSecretKey">Flask Secret Key</label>
+                            <input class="form-input" id="flaskSecretKey" data-config-path="flask.secret_key" data-sensitive="true" type="password">
+                        </div>
+                        <div class="field-row">
+                            <div class="form-group">
+                                <label class="form-label" for="webHost">Host</label>
+                                <input class="form-input" id="webHost" data-config-path="web.host">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="webPort">Port</label>
+                                <input class="form-input" id="webPort" data-config-path="web.port" data-cast="int" type="number" min="1" max="65535">
+                            </div>
+                        </div>
+                        <label class="checkbox-row">
+                            <input type="checkbox" data-config-path="web.debug">
+                            <span>启用 Web Debug</span>
+                        </label>
+                        <div class="field-row">
+                            <div class="form-group">
+                                <label class="form-label" for="sessionTimeout">Session Timeout</label>
+                                <input class="form-input" id="sessionTimeout" data-config-path="session.timeout" data-cast="int" type="number" min="60">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="maxLoginAttempts">Max Login Attempts</label>
+                                <input class="form-input" id="maxLoginAttempts" data-config-path="security.max_login_attempts" data-cast="int" type="number" min="1">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="lockoutDuration">Lockout Duration</label>
+                            <input class="form-input" id="lockoutDuration" data-config-path="security.lockout_duration" data-cast="int" type="number" min="1">
+                        </div>
+                    </section>
+
+                    <section class="system-config-section">
+                        <div class="section-header">
+                            <h4 class="section-title">API 默认项</h4>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="defaultApi">api.default_api</label>
+                            <select class="form-control" id="defaultApi" data-config-path="api.default_api" data-option-source="api_names"></select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="analysisDefaultApi">analysis.default_api</label>
+                            <select class="form-control" id="analysisDefaultApi" data-config-path="analysis.default_api" data-option-source="api_names"></select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="imageDefaultApi">fuck_or_not_api</label>
+                            <select class="form-control" id="imageDefaultApi" data-config-path="fuck_or_not_api" data-option-source="api_names"></select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="qCommandApi">q_command_api</label>
+                            <select class="form-control" id="qCommandApi" data-config-path="q_command_api" data-option-source="api_names"></select>
+                        </div>
+                        <div class="field-row">
+                            <div class="form-group">
+                                <label class="form-label" for="apiMaxTokens">api.max_tokens</label>
+                                <input class="form-input" id="apiMaxTokens" data-config-path="api.max_tokens" data-cast="int" type="number" min="1">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="apiSemaphore">api.semaphore_limit</label>
+                                <input class="form-input" id="apiSemaphore" data-config-path="api.semaphore_limit" data-cast="int" type="number" min="1">
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="system-config-section system-config-section-wide">
+                        <div class="section-header section-header-actions">
+                            <h4 class="section-title">API List</h4>
+                            <button type="button" class="btn-glass btn-sm" data-action="add-api-item">添加 API</button>
+                        </div>
+                        <div id="apiList" class="api-list"></div>
+                    </section>
+
+                    <section class="system-config-section">
+                        <div class="section-header">
+                            <h4 class="section-title">默认行为</h4>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="defaultCharacter">user.default_char</label>
+                            <select class="form-control" id="defaultCharacter" data-config-path="user.default_char" data-option-source="characters"></select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="defaultPreset">user.default_preset</label>
+                            <select class="form-control" id="defaultPreset" data-config-path="user.default_preset" data-option-source="presets"></select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="defaultStream">user.default_stream</label>
+                            <select class="form-control" id="defaultStream" data-config-path="user.default_stream">
+                                <option value="no">no</option>
+                                <option value="yes">yes</option>
+                            </select>
+                        </div>
+                        <div class="field-row">
+                            <div class="form-group">
+                                <label class="form-label" for="defaultFrequency">user.default_frequency</label>
+                                <input class="form-input" id="defaultFrequency" data-config-path="user.default_frequency" data-cast="int" type="number" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="defaultBalance">user.default_balance</label>
+                                <input class="form-input" id="defaultBalance" data-config-path="user.default_balance" data-cast="float" type="number" step="0.1" min="0">
+                            </div>
+                        </div>
+                        <div class="field-row">
+                            <div class="form-group">
+                                <label class="form-label" for="privateHistoryLimit">dialog.private_history_limit</label>
+                                <input class="form-input" id="privateHistoryLimit" data-config-path="dialog.private_history_limit" data-cast="int" type="number" min="1">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="groupHistoryLimit">dialog.group_history_limit</label>
+                                <input class="form-input" id="groupHistoryLimit" data-config-path="dialog.group_history_limit" data-cast="int" type="number" min="1">
+                            </div>
+                        </div>
+                        <div class="field-row">
+                            <div class="form-group">
+                                <label class="form-label" for="defaultGroupRate">group.default_rate</label>
+                                <input class="form-input" id="defaultGroupRate" data-config-path="group.default_rate" data-cast="float" type="number" step="0.01" min="0" max="1">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="signDefaultFrequency">sign.default_frequency</label>
+                                <input class="form-input" id="signDefaultFrequency" data-config-path="sign.default_frequency" data-cast="int" type="number" min="0">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="signMaxFrequency">sign.max_frequency</label>
+                            <input class="form-input" id="signMaxFrequency" data-config-path="sign.max_frequency" data-cast="int" type="number" min="1">
+                        </div>
+                    </section>
+
+                    <section class="system-config-section">
+                        <div class="section-header">
+                            <h4 class="section-title">数据与路径</h4>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="databasePath">database.default_path</label>
+                            <input class="form-input" id="databasePath" data-config-path="database.default_path">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="databaseMaxConnections">database.max_connections</label>
+                            <input class="form-input" id="databaseMaxConnections" data-config-path="database.max_connections" data-cast="int" type="number" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="charactersPath">paths.characters_path</label>
+                            <input class="form-input" id="charactersPath" data-config-path="paths.characters_path">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="promptPath">paths.prompt_path</label>
+                            <input class="form-input" id="promptPath" data-config-path="paths.prompt_path">
+                        </div>
+                    </section>
+
+                    <section class="system-config-section">
+                        <div class="section-header">
+                            <h4 class="section-title">Features / Plugins</h4>
+                        </div>
+                        <label class="checkbox-row">
+                            <input type="checkbox" data-config-path="features.start_web">
+                            <span>features.start_web</span>
+                        </label>
+                        <label class="checkbox-row">
+                            <input type="checkbox" data-config-path="features.start_monitor">
+                            <span>features.start_monitor</span>
+                        </label>
+                        <label class="checkbox-row">
+                            <input type="checkbox" data-config-path="plugins.enabled">
+                            <span>plugins.enabled</span>
+                        </label>
+                        <label class="checkbox-row">
+                            <input type="checkbox" data-config-path="plugins.items.trading.lifecycle.monitor.enabled">
+                            <span>trading.lifecycle.monitor.enabled</span>
+                        </label>
+                    </section>
+                </div>
+
+                <div class="system-config-footer">
+                    <button type="button" class="btn-primary" data-action="save-system-config">
+                        保存到 config_local.json
+                    </button>
                 </div>
             </form>
-        </div>
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-modal-close>取消</button>
-            <button type="button" class="btn btn-primary" id="createFileBtn" data-action="create-config-file">创建</button>
         </div>
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsoneditor/9.10.2/jsoneditor.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/edit/matchbrackets.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/edit/closebrackets.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/fold/foldcode.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/fold/foldgutter.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/fold/brace-fold.min.js"></script>
-    <script type="module" src="{{ url_for('static', filename='js/pages/config.js', v=moment().timestamp() | int) }}"></script>
+    <script type="module" src="{{ url_for('static', filename='js/pages/system-config.js', v=moment().timestamp() | int) }}"></script>
 {% endblock %}

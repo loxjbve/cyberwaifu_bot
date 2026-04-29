@@ -8,9 +8,10 @@ from typing import Union
 from flask import Blueprint, Response, current_app, jsonify, request, send_from_directory, session
 
 from agent.llm_functions import generate_summary
-from utils.config_utils import get_settings
+from utils.config_utils import get_settings, load_settings
 from web.factory import admin_required, app_logger, get_admin_ids, viewer_or_admin_required
 from web.services.config_file_service import ConfigFileService
+from web.services.system_config_service import SystemConfigService
 from web.services.user_admin_service import UserAdminService
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
@@ -23,6 +24,14 @@ def _project_root() -> str:
 
 def _config_service() -> ConfigFileService:
     return ConfigFileService(_project_root())
+
+
+def _system_config_service() -> SystemConfigService:
+    return SystemConfigService(
+        _project_root(),
+        settings_provider=get_settings,
+        settings_reloader=load_settings,
+    )
 
 
 @api_bp.route("/message_page/<group_id>/<msg_id>")
@@ -158,6 +167,28 @@ def api_config_delete():
     except FileNotFoundError as error:
         return jsonify({"error": str(error)}), 404
     except Exception as error:
+        return jsonify({"error": str(error)}), 500
+
+
+@api_bp.route("/system-config", methods=["GET"])
+@admin_required
+def api_system_config_get():
+    try:
+        return jsonify(_system_config_service().get_payload())
+    except Exception as error:
+        return jsonify({"error": str(error)}), 500
+
+
+@api_bp.route("/system-config", methods=["PUT"])
+@admin_required
+def api_system_config_put():
+    try:
+        payload = request.get_json() or {}
+        return jsonify(_system_config_service().save_config(payload))
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+    except Exception as error:
+        app_logger.error("Failed to save system config: %s", error)
         return jsonify({"error": str(error)}), 500
 
 

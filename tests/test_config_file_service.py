@@ -15,6 +15,7 @@ def _write_json(path: Path, payload):
 
 def test_config_file_service_crud_and_listing(tmp_path):
     _write_json(tmp_path / "config" / "alpha.json", {"a": 1})
+    _write_json(tmp_path / "config" / "config_local.json", {"secret": 1})
     _write_json(tmp_path / "prompts" / "beta.json", {"b": 2})
 
     service = ConfigFileService(str(tmp_path))
@@ -51,3 +52,20 @@ def test_config_file_service_rejects_invalid_paths(tmp_path):
 
     with pytest.raises(ValueError):
         service.create_file("invalid", "name", {})
+
+
+def test_config_file_service_blocks_system_config_files(tmp_path):
+    _write_json(tmp_path / "config" / "config_local.json", {"secret": 1})
+    service = ConfigFileService(str(tmp_path))
+
+    with pytest.raises(PermissionError):
+        service.read_file("config/config_local.json")
+
+    with pytest.raises(PermissionError):
+        service.save_file("config/config_local.json", {"secret": 2})
+
+    with pytest.raises(PermissionError):
+        service.delete_file("config/config_local.json")
+
+    with pytest.raises(PermissionError):
+        service.create_file("config", "config_local", {"secret": 3})

@@ -19,7 +19,6 @@ from utils.logging_utils import setup_logging
 
 setup_logging()
 logger = logging.getLogger(__name__)
-ADMIN = get_admin_ids()
 
 
 class Decorators:
@@ -53,8 +52,9 @@ class Decorators:
                 return await func(update, context, *args, **kwargs)
             
             admin_list = db.group_admin_list_get(info['group_id'])
+            system_admins = get_admin_ids()
 
-            if not ((info['user_id'] in admin_list) or (info['user_id'] in ADMIN)):
+            if not ((info['user_id'] in admin_list) or (info['user_id'] in system_admins)):
                 # Check if it's a message or a callback query
                 if hasattr(update, 'message') and update.message:
                     await update.message.reply_text("仅管理员可操作此命令。")
@@ -76,7 +76,7 @@ class Decorators:
                 logger.warning("无法获取用户信息，跳过管理员检查。")
                 return await func(update, context, *args, **kwargs)
 
-            if not info['user_id'] in ADMIN:
+            if info['user_id'] not in get_admin_ids():
                 if hasattr(update, 'message') and update.message:
                     await update.message.reply_text("无权限操作，仅管理员可用。")
                 # 如果是其他类型（如回调查询），可以扩展逻辑

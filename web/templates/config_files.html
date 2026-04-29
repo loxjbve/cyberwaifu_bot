@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}配置文件管理 - CyberWaifu Bot{% endblock %}
+{% block page_id %}config-files{% endblock %}
+
+{% block extra_css %}
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/jsoneditor/9.10.2/jsoneditor.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/config.css', v=moment().timestamp() | int) }}">
+{% endblock %}
+
+{% block page_title %}配置文件{% endblock %}
+{% block page_subtitle %}
+    <p class="page-subtitle">这里仅管理非系统配置 JSON，系统配置请使用结构化页面。</p>
+{% endblock %}
+
+{% block page_actions %}
+    <a href="{{ url_for('admin.config_management') }}" class="btn-glass btn-sm">
+        <i class="fas fa-sliders-h"></i> 系统配置
+    </a>
+{% endblock %}
+
+{% block content %}
+<div class="config-layout" data-page="config-files">
+    <aside class="config-sidebar">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="h5">配置文件</h3>
+            <button class="btn btn-primary btn-sm" id="showCreateModalBtn" type="button" data-action="open-create-file-modal">
+                <i class="fas fa-plus"></i> 新建
+            </button>
+        </div>
+        <button class="btn btn-secondary btn-sm w-100 mb-3" id="refreshFileListBtn" type="button" data-action="refresh-config-files">
+            <i class="fas fa-sync-alt"></i> 刷新列表
+        </button>
+        <div id="fileList" class="file-list" aria-live="polite">
+            <div class="text-center p-3">
+                <div class="spinner"></div>
+                <p>加载中...</p>
+            </div>
+        </div>
+    </aside>
+
+    <main class="config-editor-area">
+        <div class="editor-toolbar">
+            <div class="file-info">
+                <h4 class="h6 mb-0" id="currentFileName">请选择一个文件进行编辑</h4>
+                <div class="path" id="currentFileInfo"></div>
+            </div>
+            <div class="actions">
+                <button class="btn btn-success btn-sm" id="saveBtn" type="button" data-action="save-config-file" disabled>
+                    <i class="fas fa-save"></i> 保存
+                </button>
+                <button class="btn btn-danger btn-sm" id="deleteBtn" type="button" data-action="delete-config-file" disabled>
+                    <i class="fas fa-trash"></i> 删除
+                </button>
+            </div>
+        </div>
+
+        <div class="editor-main">
+            <div class="editor-tabs" id="editorModeTabs">
+                <button class="tab-btn active" data-mode="visual">
+                    <i class="fas fa-eye"></i> 可视化编辑
+                </button>
+                <button class="tab-btn" data-mode="code">
+                    <i class="fas fa-code"></i> 代码编辑
+                </button>
+            </div>
+
+            <div class="editor-content">
+                <div id="visual-editor" class="editor-pane active">
+                    <div id="jsoneditor" class="jsoneditor-container"></div>
+                </div>
+                <div id="code-editor" class="editor-pane">
+                    <textarea id="codeEditor" placeholder="请选择一个配置文件进行编辑..."></textarea>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<div id="createFileModal" class="modal-overlay" aria-hidden="true" data-modal="create-config-file">
+    <div class="modal-container">
+        <div class="modal-header">
+            <h5 class="modal-title">创建新配置文件</h5>
+            <button type="button" class="btn-close" data-modal-close></button>
+        </div>
+        <div class="modal-body">
+            <form id="createFileForm">
+                <div class="form-group">
+                    <label for="fileCategory" class="form-label">文件分类</label>
+                    <select class="form-control" id="fileCategory" required>
+                        <option value="">请选择分类</option>
+                        <option value="characters">角色配置 (characters)</option>
+                        <option value="config">其他配置 (config)</option>
+                        <option value="prompts">提示词 (prompts)</option>
+                        <option value="agent_docs">智能体文档 (agent/docs)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="fileName" class="form-label">文件名</label>
+                    <input type="text" class="form-control" id="fileName" placeholder="不需要包含 .json 后缀" required>
+                </div>
+                <div class="form-group">
+                    <label for="fileTemplate" class="form-label">初始模板</label>
+                    <select class="form-control" id="fileTemplate">
+                        <option value="empty">空对象 {}</option>
+                        <option value="character">角色模板</option>
+                        <option value="config">配置模板</option>
+                        <option value="prompt">提示词模板</option>
+                        <option value="agent_docs">智能体文档模板</option>
+                    </select>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-modal-close>取消</button>
+            <button type="button" class="btn btn-primary" id="createFileBtn" data-action="create-config-file">创建</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsoneditor/9.10.2/jsoneditor.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/edit/matchbrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/edit/closebrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/fold/foldcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/fold/foldgutter.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/fold/brace-fold.min.js"></script>
+    <script type="module" src="{{ url_for('static', filename='js/pages/config.js', v=moment().timestamp() | int) }}"></script>
+{% endblock %}

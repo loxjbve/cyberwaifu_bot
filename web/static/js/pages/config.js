@@ -6,7 +6,7 @@ import { showToast } from '../core/toast.js';
 const CATEGORY_ORDER = ['characters', 'config', 'prompts', 'agent_docs'];
 const CATEGORY_LABELS = {
     characters: '角色配置',
-    config: '系统配置',
+    config: '其他配置',
     prompts: '提示词',
     agent_docs: '智能体文档',
 };
@@ -495,7 +495,7 @@ function initEditors() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    const pageRoot = document.querySelector('[data-page="config"]');
+    const pageRoot = document.querySelector('[data-page="config-files"]');
     if (!pageRoot) {
         return;
     }

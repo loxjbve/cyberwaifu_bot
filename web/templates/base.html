@@ -91,9 +91,9 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'admin.config_management' %}active{% endif %}"
+                        <a class="nav-link {% if request.endpoint in ['admin.config_management', 'admin.config_files_management'] %}active{% endif %}"
                            href="{{ url_for('admin.config_management') }}"
-                           aria-current="{% if request.endpoint == 'admin.config_management' %}page{% endif %}">
+                           aria-current="{% if request.endpoint in ['admin.config_management', 'admin.config_files_management'] %}page{% endif %}">
                             <i data-feather="settings" class="nav-link-icon" aria-hidden="true"></i>
                             <span class="nav-link-text">配置管理</span>
                         </a>

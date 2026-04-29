@@ -15,6 +15,12 @@ class ConfigFileService:
         "prompts": "prompts",
         "agent_docs": "agent/docs",
     }
+    PROTECTED_FILES = {
+        "config/config.json",
+        "config/config_local.json",
+        "config/default_config.json",
+    }
+    PROTECTED_CONFIG_FILENAMES = {"config.json", "config_local.json", "default_config.json"}
 
     def __init__(self, project_root: str) -> None:
         self.project_root = project_root
@@ -31,6 +37,8 @@ class ConfigFileService:
                         continue
                     abs_file_path = os.path.join(abs_dir_path, filename)
                     rel_file_path = f"{rel_dir_path}/{filename}".replace("\\", "/")
+                    if rel_file_path in self.PROTECTED_FILES:
+                        continue
                     try:
                         with open(abs_file_path, "r", encoding="utf-8") as file:
                             json.load(file)
@@ -84,6 +92,8 @@ class ConfigFileService:
         safe_filename = re.sub(r"[\\/*?:\"<>|]", "", safe_filename)
         if not safe_filename:
             raise ValueError("Invalid filename")
+        if category == "config" and safe_filename in self.PROTECTED_CONFIG_FILENAMES:
+            raise PermissionError("Access denied")
 
         dir_path = os.path.join(self.project_root, self.CATEGORY_DIRS[category])
         os.makedirs(dir_path, exist_ok=True)
@@ -115,6 +125,8 @@ class ConfigFileService:
         if normalized.startswith(("../", "./", "/")):
             raise PermissionError("Invalid path")
         if not any(normalized.startswith(prefix) for prefix in self.allowed_dirs):
+            raise PermissionError("Access denied")
+        if normalized in self.PROTECTED_FILES:
             raise PermissionError("Access denied")
         return normalized
 

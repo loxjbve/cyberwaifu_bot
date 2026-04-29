@@ -33,6 +33,30 @@ body.login-page {
     color: var(--color-primary);
 }
 
+.login-brand svg,
+.password-icon svg,
+.alert svg,
+.login-footnote svg {
+    width: 1.2rem;
+    height: 1.2rem;
+    flex: 0 0 auto;
+}
+
+.login-brand svg {
+    width: 2rem;
+    height: 2rem;
+}
+
+.btn-login {
+    width: 100%;
+}
+
+.btn-login svg {
+    width: 1.15rem;
+    height: 1.15rem;
+    flex: 0 0 auto;
+}
+
 .login-title {
     font-size: 1.65rem;
 }

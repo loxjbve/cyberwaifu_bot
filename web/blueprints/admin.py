@@ -242,6 +242,12 @@ def config_management():
     return render_template("config.html")
 
 
+@admin_bp.route("/config/files")
+@viewer_or_admin_required
+def config_files_management():
+    return render_template("config_files.html")
+
+
 @admin_bp.route("/database")
 @viewer_or_admin_required
 def database_viewer():
