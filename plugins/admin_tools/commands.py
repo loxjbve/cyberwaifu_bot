@@ -2,8 +2,10 @@ import io
 import json
 import logging
 import os
+import subprocess
 import sys
 from datetime import datetime
+from pathlib import Path
 
 from telegram import InputFile, Update
 from telegram.error import TelegramError
@@ -562,6 +564,56 @@ class CheckpointCommand(BaseCommand):
         except Exception as e:
             await update.message.reply_text(f"❌ 执行检查点时发生意外错误：\n`{type(e).__name__}: {e}`", parse_mode='Markdown')
             logger.error(f"执行 WAL 检查点时发生意外错误: {e}", exc_info=True)
+
+
+class RebootCommand(BaseCommand):
+    meta = CommandMeta(
+        name='reboot',
+        command_type='admin',
+        trigger='reboot',
+        menu_text='Rebuild and restart bot',
+        show_in_menu=False,
+        menu_weight=101,
+        bot_admin_required=True,
+    )
+
+    async def handle(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        if not update.message or not update.effective_user:
+            return
+
+        project_root = Path(__file__).resolve().parents[2]
+        script_path = Path(
+            os.environ.get("REBOOT_SCRIPT_PATH", project_root / "scripts" / "reboot.sh")
+        )
+        log_path = Path(os.environ.get("REBOOT_LOG_PATH", project_root / "reboot_update.log"))
+
+        if not script_path.exists():
+            await update.message.reply_text(f"Reboot script not found: {script_path}")
+            return
+
+        await update.message.reply_text(
+            "Starting full rebuild update. Persistent data will be backed up and restored; Docker will be rebuilt without cache."
+        )
+        logger.info("Admin %s triggered full Docker reboot", update.effective_user.id)
+
+        try:
+            close_all_connections()
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            log_file = open(log_path, "ab", buffering=0)
+            subprocess.Popen(
+                ["sh", str(script_path)],
+                cwd=str(project_root),
+                stdout=log_file,
+                stderr=subprocess.STDOUT,
+                stdin=subprocess.DEVNULL,
+                start_new_session=True,
+                close_fds=True,
+            )
+            await update.message.reply_text(f"Reboot script launched. Log: {log_path}")
+        except Exception as e:
+            error_message = f"Failed to launch reboot script:\n`{type(e).__name__}: {e}`"
+            await update.message.reply_text(error_message, parse_mode='Markdown')
+            logger.error("Failed to launch reboot script: %s", e, exc_info=True)
 
 
 class RestartCommand(BaseCommand):

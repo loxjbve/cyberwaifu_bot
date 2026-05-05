@@ -5,6 +5,7 @@ from plugins.admin_tools.commands import (
     ExportCommand,
     ForwardCommand,
     MessageCommand,
+    RebootCommand,
     RestartCommand,
     SetTierCommand,
 )
@@ -26,6 +27,7 @@ def register(registrar):
             ForwardCommand,
             MessageCommand,
             CheckpointCommand,
+            RebootCommand,
             RestartCommand,
         ],
     )
