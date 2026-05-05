@@ -20,6 +20,7 @@ from bot_core.services.messages import MessageFactory, send_message
 from bot_core.services.utils.error import BotError
 from bot_core.services.utils.prompt import PromptService
 from bot_core.services.utils.summary import SummaryService
+from bot_core.services.soul_agent import SoulAgentService
 from utils.LLM_utils import LLM
 from utils import text_utils as txt
 from utils.text_utils import contains_nsfw
@@ -419,10 +420,12 @@ class GroupConv:
                 telegram_context=self.context,
                 images=self.images,
             )
-            messages = await prompt_service.build_group_messages()
             conv_service = ConversationService(self.client, self.user, self.context, temp_conversation)
-
-            response_text = await conv_service.responder.collect_response(messages)
+            if getattr(self.config, "chat_mode", "v1") == "v2":
+                response_text, messages = await self._run_v2_response(temp_conversation)
+            else:
+                messages = await prompt_service.build_group_messages()
+                response_text = await conv_service.responder.collect_response(messages)
             factory = MessageFactory(update=self.update, context=self.context)
 
             if self.placeholder:
@@ -453,6 +456,18 @@ class GroupConv:
             if self.placeholder:
                 factory = MessageFactory(update=self.update, context=self.context)
                 await factory.edit(self.placeholder, f"出错了：{error}")
+
+    async def _run_v2_response(self, temp_conversation: Conversation) -> tuple[str, list[dict[str, Any]]]:
+        agent = SoulAgentService(
+            llm_client=self.client,
+            user=self.user,
+            input_text=self.input.text_raw,
+            conversation=temp_conversation,
+            group=self.group,
+            group_config=self.config,
+        )
+        response_text = await agent.build_response()
+        return response_text, agent.trace_messages
 
 
 class PrivateConv:
@@ -564,16 +579,19 @@ class PrivateConv:
                 logger.warning("No input message available for private response")
                 return
 
-            prompt_service = PromptService(
-                user=self.user,
-                conversation=self.conversation,
-                input_text=self.input.text_raw,
-            )
-            messages = await prompt_service.build_private_messages()
-            final_response_text = await self.conv_service.responder.stream_private_response(
-                messages,
-                self.placeholder,
-            )
+            if getattr(self.user, "chat_mode", "v1") == "v2":
+                final_response_text, messages = await self._run_v2_response()
+            else:
+                prompt_service = PromptService(
+                    user=self.user,
+                    conversation=self.conversation,
+                    input_text=self.input.text_raw,
+                )
+                messages = await prompt_service.build_private_messages()
+                final_response_text = await self.conv_service.responder.stream_private_response(
+                    messages,
+                    self.placeholder,
+                )
 
             if self.placeholder:
                 self.output = Message(self.placeholder.message_id, final_response_text, "output")
@@ -600,3 +618,13 @@ class PrivateConv:
             logger.error("Private response failed: %s", error, exc_info=True)
             if self.placeholder:
                 await factory.edit(self.placeholder, f"出错了：{error}")
+
+    async def _run_v2_response(self) -> tuple[str, list[dict[str, Any]]]:
+        agent = SoulAgentService(
+            llm_client=self.client,
+            user=self.user,
+            input_text=self.input.text_raw,
+            conversation=self.conversation,
+        )
+        response_text = await agent.build_response()
+        return response_text, agent.trace_messages

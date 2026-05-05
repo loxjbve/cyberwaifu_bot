@@ -111,6 +111,13 @@ class UserGateway:
 
         return changed
 
+    def update_chat_mode(self, user_id: int, chat_mode: str) -> None:
+        result = self.user_config.user_config_arg_update(user_id, "chat_mode", chat_mode)
+        if not result["success"]:
+            raise DataAccessError(
+                f"Failed to update chat mode for user {user_id}: {result.get('error')}"
+            )
+
 
 class ConversationGateway:
     def __init__(self) -> None:
@@ -311,8 +318,15 @@ class GroupGateway:
         )
         if not config:
             return GroupConfig()
-        api, char, preset = config
-        return GroupConfig(api=api, char=char, preset=preset)
+        api, char, preset, chat_mode = config
+        return GroupConfig(api=api, char=char, preset=preset, chat_mode=chat_mode or "v1")
+
+    def update_chat_mode(self, group_id: int, chat_mode: str) -> None:
+        result = self.groups.group_config_arg_update(group_id, "chat_mode", chat_mode)
+        if not result["success"]:
+            raise DataAccessError(
+                f"Failed to update chat mode for group {group_id}: {result.get('error')}"
+            )
 
     def update_dialog_response(
         self,

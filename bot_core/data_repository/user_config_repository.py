@@ -32,12 +32,12 @@ class UserConfigRepository:
         Returns:
             dict: {
                 "success": bool,
-                "data": dict (char, api, preset, conv_id, stream, nick),
+                "data": dict (char, api, preset, conv_id, stream, nick, chat_mode),
                 "error": str (如果有错误)
             }
         """
         try:
-            command = "SELECT char, api, preset, conv_id, stream, nick FROM user_config WHERE uid = ?"
+            command = "SELECT char, api, preset, conv_id, stream, nick, chat_mode FROM user_config WHERE uid = ?"
             result = query_db(command, (userid,))
 
             if result:
@@ -50,6 +50,7 @@ class UserConfigRepository:
                         "conv_id": result[0][3],
                         "stream": result[0][4],
                         "nick": result[0][5],
+                        "chat_mode": result[0][6] or "v1",
                     }
                 }
             else:
@@ -251,7 +252,7 @@ class UserConfigRepository:
         """
         try:
             command = (
-                "INSERT OR IGNORE INTO user_config (char, api, preset, uid, stream, nick) VALUES (?, ?, ?, ?, ?, ?)"
+                "INSERT OR IGNORE INTO user_config (char, api, preset, uid, stream, nick, chat_mode) VALUES (?, ?, ?, ?, ?, ?, 'v1')"
             )
             params = (
                 get_default_char(),

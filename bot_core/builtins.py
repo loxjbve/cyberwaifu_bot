@@ -32,6 +32,12 @@ from bot_core.command_handlers.group import (
     RemakeCommand,
     SwitchCommand,
 )
+from bot_core.command_handlers.mode import (
+    GroupV1Command,
+    GroupV2Command,
+    PrivateV1Command,
+    PrivateV2Command,
+)
 from bot_core.command_handlers.private import (
     ApiCommand as PrivateApiCommand,
     CharCommand,
@@ -122,6 +128,8 @@ def register_builtin_capabilities(manager) -> None:
         DoneCommand,
         PrivateApiCommand,
         PresetCommand,
+        PrivateV1Command,
+        PrivateV2Command,
         RemakeCommand,
         SwitchCommand,
         RateCommand,
@@ -129,6 +137,8 @@ def register_builtin_capabilities(manager) -> None:
         DisableTopicCommand,
         EnableTopicCommand,
         GroupApiCommand,
+        GroupV1Command,
+        GroupV2Command,
     ]:
         registrar.register_command(command_cls)
 

@@ -80,12 +80,12 @@ class GroupsRepository:
         Returns:
             dict: {
                 "success": bool,
-                "data": Optional[Tuple[str, str, str]] (api, char, preset) 元组，如果未找到则返回None,
+                "data": Optional[Tuple[str, str, str, str]] (api, char, preset, chat_mode) 元组，如果未找到则返回None,
                 "error": str (如果有错误)
             }
         """
         try:
-            command = "SELECT api, char, preset FROM groups WHERE group_id = ?"
+            command = "SELECT api, char, preset, chat_mode FROM groups WHERE group_id = ?"
             result = query_db(command, (group_id,))
 
             data = result[0] if result else None
@@ -276,7 +276,7 @@ class GroupsRepository:
             }
         """
         try:
-            command = "INSERT INTO groups (group_id, api, char, preset) VALUES (?, ?, ?, ?)"
+            command = "INSERT INTO groups (group_id, api, char, preset, chat_mode) VALUES (?, ?, ?, ?, 'v1')"
             result = revise_db(
                 command,
                 (group_id, get_default_api(), get_default_char(), get_default_preset()),

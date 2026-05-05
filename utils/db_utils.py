@@ -615,10 +615,10 @@ def user_config_get(userid: int) -> dict:
         userid: 用户ID
 
     Returns:
-        dict: 包含 char, api, preset, conv_id, stream, nick 的配置字典
+        dict: 包含 char, api, preset, conv_id, stream, nick, chat_mode 的配置字典
     """
     command = (
-        "SELECT char, api, preset, conv_id,stream,nick FROM user_config WHERE uid = ?"
+        "SELECT char, api, preset, conv_id,stream,nick,chat_mode FROM user_config WHERE uid = ?"
     )
     result = query_db(command, (userid,))
     return (
@@ -629,6 +629,7 @@ def user_config_get(userid: int) -> dict:
             "conv_id": result[0][3],
             "stream": result[0][4],
             "nick": result[0][5],
+            "chat_mode": result[0][6] or "v1",
         }
         if result
         else {}
@@ -682,7 +683,7 @@ def user_config_create(userid: int, nick: Optional[str] = None) -> bool:
         bool: 操作是否成功
     """
     command = (
-        "INSERT OR IGNORE INTO user_config (char, api, preset, uid, stream, nick) VALUES (?, ?, ?, ?, ?, ?)"
+        "INSERT OR IGNORE INTO user_config (char, api, preset, uid, stream, nick, chat_mode) VALUES (?, ?, ?, ?, ?, ?, 'v1')"
     )
     params = (
         get_default_char(),
@@ -1165,7 +1166,7 @@ def group_check_update(group_id: int) -> bool:
     return True
 
 
-def group_config_get(group_id: int) -> Optional[Tuple[str, str, str]]:
+def group_config_get(group_id: int) -> Optional[Tuple[str, str, str, str]]:
     """
     获取指定群组的配置。
 
@@ -1173,9 +1174,9 @@ def group_config_get(group_id: int) -> Optional[Tuple[str, str, str]]:
         group_id: 群组ID
 
     Returns:
-        Optional[Tuple[str, str, str]]: (api, char, preset) 元组，如果未找到则返回None
+        Optional[Tuple[str, str, str, str]]: (api, char, preset, chat_mode) 元组，如果未找到则返回None
     """
-    command = "SELECT api, char, preset FROM groups WHERE group_id = ?"
+    command = "SELECT api, char, preset, chat_mode FROM groups WHERE group_id = ?"
     result = query_db(command, (group_id,))
     return result[0] if result else None
 
@@ -1267,7 +1268,7 @@ def group_info_create(group_id: int) -> bool:
     Returns:
         bool: 操作是否成功
     """
-    command = "INSERT INTO groups (group_id, api, char, preset) VALUES (?, ?, ?, ?)"
+    command = "INSERT INTO groups (group_id, api, char, preset, chat_mode) VALUES (?, ?, ?, ?, 'v1')"
     result = revise_db(
         command,
         (

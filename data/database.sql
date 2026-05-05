@@ -83,7 +83,8 @@ create table groups
     update_time     ANY,
     rate            REAL,
     output_token    integer,
-    disabled_topics TEXT
+    disabled_topics TEXT,
+    chat_mode       TEXT DEFAULT 'v1'
 );
 
 
@@ -96,7 +97,8 @@ create table user_config
     preset  TEXT,
     conv_id INT,
     stream  TEXT,
-    nick    TEXT
+    nick    TEXT,
+    chat_mode TEXT DEFAULT 'v1'
 );
 
 create table user_sign

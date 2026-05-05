@@ -1,0 +1,76 @@
+{
+  "subject_name": "小川",
+  "persona_template": "self",
+  "target_account_id": "lele466808405",
+  "target_account": {
+    "account_id": "lele466808405",
+    "label": "富婆",
+    "display_names": [
+      "富婆",
+      "星々のセンター"
+    ],
+    "message_count": 17535,
+    "is_session_account": true
+  },
+  "enabled_dimensions": [
+    "procedure",
+    "interaction",
+    "memory",
+    "personality"
+  ],
+  "required_dimensions": [
+    "procedure",
+    "interaction",
+    "memory",
+    "personality"
+  ],
+  "coverage_by_dimension": {
+    "procedure": {
+      "verbatim_count": 0,
+      "artifact_count": 0,
+      "impression_count": 0,
+      "high_confidence_count": 0,
+      "insufficient": true,
+      "ready_for_merge": false,
+      "selected_count": 0,
+      "document_count": 0,
+      "source_channels": []
+    },
+    "interaction": {
+      "verbatim_count": 0,
+      "artifact_count": 0,
+      "impression_count": 0,
+      "high_confidence_count": 0,
+      "insufficient": true,
+      "ready_for_merge": false,
+      "selected_count": 0,
+      "document_count": 0,
+      "source_channels": []
+    },
+    "memory": {
+      "verbatim_count": 0,
+      "artifact_count": 0,
+      "impression_count": 0,
+      "high_confidence_count": 0,
+      "insufficient": true,
+      "ready_for_merge": false,
+      "selected_count": 0,
+      "document_count": 0,
+      "source_channels": []
+    },
+    "personality": {
+      "verbatim_count": 0,
+      "artifact_count": 0,
+      "impression_count": 0,
+      "high_confidence_count": 0,
+      "insufficient": true,
+      "ready_for_merge": false,
+      "selected_count": 0,
+      "document_count": 0,
+      "source_channels": []
+    }
+  },
+  "source_channels": [],
+  "ethics_note": "self-backup",
+  "generated_at": "2026-05-02T08:12:01.520385"
+}

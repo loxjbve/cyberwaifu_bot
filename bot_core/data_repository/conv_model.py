@@ -22,6 +22,7 @@ class User(BaseModel):
     preset: str
     stream: bool
     active_conversation_id: Optional[int] = Field(None, alias='conv_id')
+    chat_mode: str = "v1"
 
     # 来自 user_sign 表
     last_sign_in: Optional[datetime.datetime] = Field(None, alias='last_sign')
@@ -66,3 +67,4 @@ class GroupConfig(BaseModel):
     api: Optional[str] = None
     char: Optional[str] = None
     preset: Optional[str] = None
+    chat_mode: str = "v1"
